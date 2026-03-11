@@ -197,6 +197,7 @@ For the full guide — real-world examples, advanced patterns (circuit breaker, 
 
 | Doc | Description |
 |-----|-------------|
+| [Architecture](docs/architecture.md) | How Asurada works internally — module map, data flow, extension points |
 | [Plugin Guide](docs/plugin-guide.md) | Writing perception plugins — examples, advanced patterns, design principles |
 
 ## Requirements
