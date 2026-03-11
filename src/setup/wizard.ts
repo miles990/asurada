@@ -19,9 +19,11 @@ export interface WizardResult {
   /** Agent persona (Phase C) */
   persona?: string;
   /** LLM runner type */
-  runner?: 'anthropic-api' | 'claude-cli';
+  runner?: 'anthropic-api' | 'claude-cli' | 'openai-compatible';
   /** LLM model */
   model?: string;
+  /** OpenAI-compatible base URL */
+  baseUrl?: string;
   /** Notification providers to configure */
   notifications: Array<{ type: string; options?: Record<string, unknown> }>;
 }
@@ -89,6 +91,20 @@ function validateClaudeCli(): { ok: boolean; version?: string } {
   }
 }
 
+async function validateOpenAiEndpoint(baseUrl: string): Promise<{ ok: boolean; models?: string[] }> {
+  try {
+    const res = await fetch(`${baseUrl}/v1/models`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return { ok: false };
+    const data = await res.json() as { data?: Array<{ id: string }> };
+    const models = data.data?.map(m => m.id) ?? [];
+    return { ok: true, models };
+  } catch {
+    return { ok: false };
+  }
+}
+
 async function validateTelegram(
   token: string,
   chatId: string,
@@ -102,6 +118,23 @@ async function validateTelegram(
   } catch {
     return false;
   }
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  rl: readline.Interface,
+  label: string,
+  maxRetries = 2,
+): Promise<T | null> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const result = await fn();
+    if (result) return result;
+    if (attempt < maxRetries) {
+      const retry = await ask(rl, `  ${label} failed. Retry? [Y/n]: `);
+      if (retry.toLowerCase() === 'n') return null;
+    }
+  }
+  return null;
 }
 
 // === Wizard Flow ===
@@ -139,6 +172,8 @@ export async function runWizard(env: DetectionResult): Promise<WizardResult> {
       brainOptions.push(`Claude CLI (${env.llm.claudeCli.version ?? 'installed'})`);
       brainValues.push('claude-cli');
     }
+    brainOptions.push('OpenAI-compatible (Ollama, vLLM, oMLX, etc.)');
+    brainValues.push('openai-compatible');
     brainOptions.push('Skip — I\'ll configure later');
     brainValues.push('skip');
 
@@ -147,16 +182,21 @@ export async function runWizard(env: DetectionResult): Promise<WizardResult> {
 
     if (brainValue === 'anthropic-api-env') {
       process.stdout.write('  Validating API key... ');
-      const ok = await validateAnthropicKey(process.env.ANTHROPIC_API_KEY!);
-      console.log(ok ? '\u2713 connected' : '\u2717 failed (will use key anyway)');
+      const validated = await withRetry(
+        async () => validateAnthropicKey(process.env.ANTHROPIC_API_KEY!),
+        rl, 'API key validation',
+      );
+      console.log(validated ? '\u2713 connected' : '\u2717 failed (will use key anyway)');
       result.runner = 'anthropic-api';
     } else if (brainValue === 'anthropic-api-manual') {
       const key = await ask(rl, '  Enter ANTHROPIC_API_KEY: ');
       if (key) {
         process.stdout.write('  Validating... ');
-        const ok = await validateAnthropicKey(key);
-        console.log(ok ? '\u2713 connected' : '\u2717 failed — check key later');
-        // Set in current process so runner can use it
+        const validated = await withRetry(
+          async () => validateAnthropicKey(key),
+          rl, 'API key validation',
+        );
+        console.log(validated ? '\u2713 connected' : '\u2717 failed — check key later');
         process.env.ANTHROPIC_API_KEY = key;
         result.runner = 'anthropic-api';
         console.log('  Note: Add ANTHROPIC_API_KEY to your shell profile for persistence.');
@@ -165,6 +205,31 @@ export async function runWizard(env: DetectionResult): Promise<WizardResult> {
       const check = validateClaudeCli();
       console.log(check.ok ? `  \u2713 Claude CLI ready` : '  \u2717 Claude CLI not found');
       result.runner = 'claude-cli';
+    } else if (brainValue === 'openai-compatible') {
+      const baseUrl = await ask(rl, '  Base URL (e.g. http://localhost:8000): ');
+      if (baseUrl) {
+        process.stdout.write('  Checking endpoint... ');
+        const check = await withRetry(
+          async () => {
+            const r = await validateOpenAiEndpoint(baseUrl);
+            return r.ok ? r : null;
+          },
+          rl, 'Endpoint check',
+        );
+        if (check && typeof check === 'object' && 'models' in check) {
+          const models = (check as { models?: string[] }).models ?? [];
+          console.log(`\u2713 connected (${models.length} model${models.length !== 1 ? 's' : ''} available)`);
+          if (models.length > 0) {
+            console.log(`  Available: ${models.slice(0, 5).join(', ')}${models.length > 5 ? '...' : ''}`);
+          }
+          const modelInput = await ask(rl, `  Model ID [${models[0] ?? 'default'}]: `);
+          result.model = modelInput || models[0] || 'default';
+        } else {
+          console.log('\u2717 could not reach endpoint — configure baseUrl in asurada.yaml later');
+        }
+        result.runner = 'openai-compatible';
+        result.baseUrl = baseUrl;
+      }
     }
     // skip → no runner set
 
