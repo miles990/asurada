@@ -53,6 +53,38 @@ export interface LoopConfig {
   model?: string;
   /** Runner type hint for CLI auto-detection: "claude-cli" | "anthropic-api" */
   runner?: string;
+  /** Intelligent cost routing (SKIP/REFLECT/ESCALATE) */
+  router?: RouterConfig;
+}
+
+/** Three-tier model routing — reduce cost by skipping or using cheaper models */
+export interface RouterConfig {
+  /** Enable routing (default: false — direct runner) */
+  enabled?: boolean;
+  /** Recency half-life in minutes (default: 30). Recent human messages → higher temperature → escalate */
+  halfLife?: number;
+  /** Minimum temperature when an active thread exists (0.0-1.0, default: 0.35) */
+  threadFloor?: number;
+  /** Task patterns that justify REFLECT tier (regex strings matched against cycle prompt) */
+  reflectTasks?: string[];
+  /** Start in shadow mode — triage decides but always escalates (default: false) */
+  shadowMode?: boolean;
+  /** Triage runner config (cheap/fast model for routing decisions) */
+  triageRunner?: RunnerRef;
+  /** Reflect runner config (mid-tier model for routine tasks) */
+  reflectRunner?: RunnerRef;
+}
+
+/** Reference to a runner for multi-tier routing */
+export interface RunnerRef {
+  /** Runner type: "claude-cli" | "anthropic-api" | "openai-compatible" */
+  type: string;
+  /** Model identifier */
+  model?: string;
+  /** OpenAI-compatible base URL (required for type: "openai-compatible") */
+  baseUrl?: string;
+  /** API key override (default: from environment) */
+  apiKey?: string;
 }
 
 /** Notification configuration */

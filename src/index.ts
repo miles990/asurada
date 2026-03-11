@@ -113,6 +113,10 @@ export {
 
 export {
   AgentLoop,
+  ModelRouter,
+  calculateRoutingTemperature,
+  buildTriagePrompt,
+  parseRoutingDecision,
   parseActions,
   parseDuration,
   ClaudeCliRunner,
@@ -125,6 +129,9 @@ export {
   type CycleTrigger,
   type CycleResult,
   type ParsedAction,
+  type RoutingDecision,
+  type ModelRouterOptions,
+  type RouteLogEvent,
 } from './loop/index.js';
 
 // HTTP API

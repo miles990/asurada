@@ -28,7 +28,12 @@ import { Logger, slog, setSlogPrefix } from './logging/index.js';
 import { LaneManager } from './lanes/manager.js';
 import type { TaskExecutor } from './lanes/types.js';
 import { AgentLoop } from './loop/agent-loop.js';
-import type { AgentLoopOptions } from './loop/types.js';
+import type { AgentLoopOptions, CycleRunner } from './loop/types.js';
+import { ModelRouter } from './loop/model-router.js';
+import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
+import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
+import { OpenAiCompatibleRunner } from './loop/runners/openai-compatible.js';
+import type { RunnerRef } from './config/types.js';
 import { VaultSync } from './obsidian/vault-sync.js';
 import { initVault } from './obsidian/vault-init.js';
 
@@ -240,8 +245,39 @@ function buildAgent(
   let loop: AgentLoop | null = null;
   if (options?.loop?.runner) {
     const loopInterval = parseInterval(config.loop?.interval) ?? 300_000;
+    const routerCfg = config.loop?.router;
+
+    // Determine the effective runner: wrap with ModelRouter if routing enabled
+    let effectiveRunner: CycleRunner = options.loop.runner;
+    if (routerCfg?.enabled) {
+      const triageRunner = routerCfg.triageRunner
+        ? buildRunnerFromRef(routerCfg.triageRunner)
+        : null;
+      const reflectRunner = routerCfg.reflectRunner
+        ? buildRunnerFromRef(routerCfg.reflectRunner)
+        : null;
+
+      if (triageRunner) {
+        const router = new ModelRouter({
+          triageRunner,
+          reflectRunner: reflectRunner ?? options.loop.runner,
+          escalateRunner: options.loop.runner,
+          reflectTasks: routerCfg.reflectTasks,
+          halfLifeMinutes: routerCfg.halfLife,
+          threadFloor: routerCfg.threadFloor,
+          shadowMode: routerCfg.shadowMode ?? true,
+          events,
+        });
+        effectiveRunner = router;
+        slog('runtime', `ModelRouter enabled (shadow=${router.shadowMode}, triage=${routerCfg.triageRunner!.type}/${routerCfg.triageRunner!.model ?? 'default'})`);
+      } else {
+        slog('runtime', 'ModelRouter enabled but no triageRunner configured — using direct runner');
+      }
+    }
+
     loop = new AgentLoop(events, perception, agentName, {
       ...options.loop,
+      runner: effectiveRunner,
       defaultInterval: loopInterval,
       minInterval: 30_000,
       maxInterval: 14_400_000,
@@ -257,6 +293,23 @@ function buildAgent(
       status: result.status,
       output: result.output?.slice(0, 200),
     });
+  });
+
+  // ModelRouter telemetry → JSONL logs (persistent, queryable)
+  events.on('action:model-route', (event) => {
+    const data = event.data as Record<string, unknown>;
+    logger.log('routing', data);
+  });
+
+  // Vault sync after every 10th cycle (daily summaries, index pages)
+  let vaultSyncCounter = 0;
+  events.on('action:cycle', (event) => {
+    const d = event.data as { event?: string };
+    if (d.event !== 'complete' || !vault) return;
+    vaultSyncCounter++;
+    if (vaultSyncCounter % 10 === 0) {
+      vault.sync().catch(() => {});
+    }
   });
 
   // --- Build perception config ---
@@ -381,6 +434,42 @@ function parseInterval(str?: string): number | null {
     case 'm': return Math.round(value * 60_000);
     case 'h': return Math.round(value * 3_600_000);
     default: return null;
+  }
+}
+
+/** Build a CycleRunner from a declarative RunnerRef config */
+function buildRunnerFromRef(ref: RunnerRef): CycleRunner {
+  switch (ref.type) {
+    case 'claude-cli':
+      return new ClaudeCliRunner({
+        model: ref.model,
+      });
+
+    case 'anthropic-api': {
+      const apiKey = ref.apiKey ?? process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        throw new Error('anthropic-api runner requires apiKey or ANTHROPIC_API_KEY env var');
+      }
+      return new AnthropicApiRunner({
+        apiKey,
+        model: ref.model,
+        baseUrl: ref.baseUrl,
+      });
+    }
+
+    case 'openai-compatible': {
+      if (!ref.baseUrl) {
+        throw new Error('openai-compatible runner requires baseUrl');
+      }
+      return new OpenAiCompatibleRunner({
+        baseUrl: ref.baseUrl,
+        model: ref.model ?? 'default',
+        apiKey: ref.apiKey,
+      });
+    }
+
+    default:
+      throw new Error(`Unknown runner type: "${ref.type}"`);
   }
 }
 

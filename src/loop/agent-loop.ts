@@ -19,6 +19,7 @@ import type {
   CycleTrigger,
   ParsedAction,
 } from './types.js';
+import { ModelRouter } from './model-router.js';
 
 export class AgentLoop {
   private readonly events: EventBus;
@@ -33,6 +34,11 @@ export class AgentLoop {
   private currentCycleAbort: AbortController | null = null;
   private eventHandlers: Array<{ pattern: string; handler: (e: AgentEvent) => void }> = [];
   private agentName: string;
+
+  /** Tracked for ModelRouter: when did a human last send a message? */
+  private lastHumanMessageAt: Date | null = null;
+  /** Tracked for ModelRouter: is there an active conversation thread? */
+  private hasActiveThread = false;
 
   constructor(
     events: EventBus,
@@ -62,6 +68,11 @@ export class AgentLoop {
     for (const pattern of patterns) {
       const handler = (event: AgentEvent): void => {
         if (!this.running) return;
+        // Track human message timing for ModelRouter
+        if (event.type.includes('chat') || event.type.includes('telegram') || event.type.includes('room')) {
+          this.lastHumanMessageAt = new Date();
+          this.hasActiveThread = true;
+        }
         this.triggerCycle({ type: 'event', event });
       };
       this.events.on(pattern, handler);
@@ -172,13 +183,24 @@ export class AgentLoop {
         ? this.options.systemPrompt()
         : this.options.systemPrompt ?? '';
 
-      // 5. Call LLM
+      // 5. Sync ModelRouter state (if applicable)
+      if (this.options.runner instanceof ModelRouter) {
+        this.options.runner.lastHumanMessageAt = this.lastHumanMessageAt;
+        this.options.runner.hasActiveThread = this.hasActiveThread;
+      }
+
+      // 6. Call LLM
       if (abort.signal.aborted) return null;
       const response = await this.options.runner.run(prompt, systemPrompt);
 
       if (abort.signal.aborted) return null;
 
-      // 6. Parse actions
+      // 6b. If ModelRouter SKIPped (empty response), clear active thread after decay
+      if (this.options.runner instanceof ModelRouter && response === '') {
+        this.hasActiveThread = false;
+      }
+
+      // 7. Parse actions
       const namespace = this.options.actionNamespace ?? this.agentName.toLowerCase() ?? 'agent';
       const actions = parseActions(response, namespace);
 

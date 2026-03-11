@@ -22,6 +22,10 @@ import { startServer } from './api/server.js';
 import { createProcessManager } from './process/factory.js';
 import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
 import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
+import { OpenAiCompatibleRunner } from './loop/runners/openai-compatible.js';
+import { ModelRouter } from './loop/model-router.js';
+import type { CycleRunner } from './loop/types.js';
+import type { RunnerRef } from './config/types.js';
 import { slog } from './logging/index.js';
 import { detectEnvironment, formatDetection, runWizard, scaffoldMemorySpace, isFirstRun, markFirstRunDone, gatherFirstRunInfo, formatFirstRunGreeting } from './setup/index.js';
 
@@ -480,9 +484,47 @@ function autoDetectRunner(config: AgentConfig): CreateAgentOptions | undefined {
   if (config.loop?.enabled === false) return undefined;
 
   const model = config.loop?.model ?? 'sonnet';
-  const runnerHint = config.loop?.runner;
+  const escalateRunner = resolveBaseRunner(config.loop?.runner, model);
+  if (!escalateRunner) {
+    console.warn('Warning: No LLM runner available. OODA loop disabled.');
+    console.warn('  Set ANTHROPIC_API_KEY or install Claude Code CLI.');
+    return undefined;
+  }
 
-  // Explicit runner in config
+  // Check if router is enabled
+  const routerConfig = config.loop?.router;
+  if (routerConfig?.enabled) {
+    const triageRunner = routerConfig.triageRunner
+      ? resolveRunnerRef(routerConfig.triageRunner)
+      : null;
+    const reflectRunner = routerConfig.reflectRunner
+      ? resolveRunnerRef(routerConfig.reflectRunner)
+      : null;
+
+    if (!triageRunner) {
+      console.warn('Warning: Router enabled but no triageRunner configured. Using direct runner.');
+      return { loop: { runner: escalateRunner } };
+    }
+
+    const router = new ModelRouter({
+      triageRunner,
+      reflectRunner: reflectRunner ?? escalateRunner,
+      escalateRunner,
+      reflectTasks: routerConfig.reflectTasks,
+      halfLifeMinutes: routerConfig.halfLife,
+      threadFloor: routerConfig.threadFloor,
+      shadowMode: routerConfig.shadowMode,
+    });
+
+    console.log(`Runner: ModelRouter (shadow: ${router.shadowMode ? 'on' : 'off'}, halfLife: ${routerConfig.halfLife ?? 30}m)`);
+    return { loop: { runner: router } };
+  }
+
+  return { loop: { runner: escalateRunner } };
+}
+
+/** Resolve a base runner from config hint or auto-detection */
+function resolveBaseRunner(runnerHint: string | undefined, model: string): CycleRunner | null {
   if (runnerHint === 'anthropic-api') {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -490,30 +532,51 @@ function autoDetectRunner(config: AgentConfig): CreateAgentOptions | undefined {
       process.exit(1);
     }
     console.log(`Runner: Anthropic API (model: ${model})`);
-    return { loop: { runner: new AnthropicApiRunner({ apiKey, model }) } };
+    return new AnthropicApiRunner({ apiKey, model });
   }
 
   if (runnerHint === 'claude-cli') {
     console.log(`Runner: Claude CLI (model: ${model})`);
-    return { loop: { runner: new ClaudeCliRunner({ model }) } };
+    return new ClaudeCliRunner({ model });
   }
 
-  // Auto-detect: API key first (more reliable), then CLI
+  // Auto-detect
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (apiKey) {
     console.log(`Runner: Anthropic API [auto-detected] (model: ${model})`);
-    return { loop: { runner: new AnthropicApiRunner({ apiKey, model }) } };
+    return new AnthropicApiRunner({ apiKey, model });
   }
 
   if (hasClaude()) {
     console.log(`Runner: Claude CLI [auto-detected] (model: ${model})`);
-    return { loop: { runner: new ClaudeCliRunner({ model }) } };
+    return new ClaudeCliRunner({ model });
   }
 
-  // No runner available
-  console.warn('Warning: No LLM runner available. OODA loop disabled.');
-  console.warn('  Set ANTHROPIC_API_KEY or install Claude Code CLI.');
-  return undefined;
+  return null;
+}
+
+/** Resolve a RunnerRef from router config to a concrete CycleRunner */
+function resolveRunnerRef(ref: RunnerRef): CycleRunner | null {
+  switch (ref.type) {
+    case 'anthropic-api': {
+      const apiKey = ref.apiKey ?? process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) return null;
+      return new AnthropicApiRunner({ apiKey, model: ref.model ?? 'haiku' });
+    }
+    case 'claude-cli':
+      return new ClaudeCliRunner({ model: ref.model ?? 'haiku' });
+    case 'openai-compatible': {
+      if (!ref.baseUrl || !ref.model) return null;
+      return new OpenAiCompatibleRunner({
+        baseUrl: ref.baseUrl,
+        model: ref.model,
+        apiKey: ref.apiKey,
+      });
+    }
+    default:
+      console.warn(`Unknown runner type in router config: "${ref.type}"`);
+      return null;
+  }
 }
 
 function hasClaude(): boolean {
