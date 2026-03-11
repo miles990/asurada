@@ -12,14 +12,16 @@
 
 /** Types of cognitive entries — everything the agent thinks */
 export type CognitiveType =
-  | 'remember'     // Persistent memory ("I learned that...")
-  | 'commitment'   // Promises and commitments ("I will...")
-  | 'learning'     // Knowledge acquired ("From reading X...")
-  | 'thread'       // Ongoing thought threads (cross-cycle thinking)
-  | 'goal'         // Objectives (with progress tracking)
-  | 'task'         // Actionable items (completable)
-  | 'observation'  // Perceptual notes ("I noticed...")
-  | 'opinion';     // Formed opinions ("I think...")
+  | 'remember'           // Persistent memory ("I learned that...")
+  | 'commitment'         // Promises and commitments ("I will...")
+  | 'learning'           // Knowledge acquired ("From reading X...")
+  | 'thread'             // Ongoing thought threads (cross-cycle thinking)
+  | 'goal'               // Objectives (with progress tracking)
+  | 'task'               // Actionable items (completable)
+  | 'observation'        // Perceptual notes ("I noticed...")
+  | 'opinion'            // Formed opinions ("I think...")
+  | 'direction-change'   // Strategy/priority shifts ("was X → now Y because Z")
+  | 'understanding';     // Deep comprehension ("I now understand...")
 
 /** A single entry in the cognitive index */
 export interface IndexEntry {
