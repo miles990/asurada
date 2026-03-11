@@ -56,3 +56,17 @@ export {
   type LogStats,
   type LoggerConfig,
 } from './logging/index.js';
+
+export {
+  LaneManager,
+  type TaskSpec,
+  type TaskResult,
+  type TaskStatus,
+  type TaskType,
+  type TaskTypeConfig,
+  type TaskExecutor,
+  type ExecutionHandle,
+  type LaneConfig,
+  type LaneEvents,
+  type VerifyResult,
+} from './lanes/index.js';
