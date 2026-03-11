@@ -70,6 +70,20 @@ GPL protects code through legal friction. Remove the friction (AI rewrites bypas
 
 We call these **robust constraints** — constraints that survive because they're intrinsic to the medium, not dependent on external enforcement.
 
+### The Ritual–Degradation Axis
+
+Why does the same mechanism — repeated use of a constrained interface — sometimes transform users positively and sometimes create dependency?
+
+In constrained creative practice (Oulipo, Cage, Perec), constraints have three faces: **Gate** (filter what's allowed), **Generator** (produce novelty from limitation), and **Ritual** (transform the practitioner through repetition). Perec wrote an entire novel without the letter 'e'. The constraint forced unexpected vocabulary. Over five years, it changed how he thought about language.
+
+Asurada's design questions map to the same structure: **Suppress** ≈ Gate, **Train** ≈ Generator, **Degrade** ≈ Ritual — but with opposite polarity. Ritual is positive transformation. Degradation is negative.
+
+The difference: **whether the user co-constructs the constraint.**
+
+Perec chose his constraint → Ritual → positive transformation. A user with an auto-generated SOUL.md didn't choose it → Degradation → dependency. The mechanism is identical. The authorship determines the direction.
+
+This is why Asurada's friction points are non-negotiable. Each one ensures the user participates in constructing the constraint: writing SOUL.md (not generating it), choosing perception plugins (not accepting defaults), editing memory (not letting it auto-curate). The inconvenience converts what would be degradation paths into ritual paths — repeated engagement that transforms the relationship between user and agent.
+
 ## The Anti-Tool-Agent Principle
 
 The greatest risk for any personal AI framework is degradation into a "tool agent" — an agent that does things *for* the user instead of *with* the user.
