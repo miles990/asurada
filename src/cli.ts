@@ -103,7 +103,9 @@ async function cmdInit(): Promise<void> {
 
   let name = option('name') ?? 'My Assistant';
   let persona: string | undefined;
+  let traits: string | undefined;
   let runner: string | undefined;
+  let perceptions: Array<'workspace' | 'browser-tabs' | 'git-activity'> | undefined;
   let notifications: Array<{ type: string; options?: Record<string, unknown> }> = [];
 
   if (nonInteractive) {
@@ -121,14 +123,18 @@ async function cmdInit(): Promise<void> {
       : [{ type: 'console' }];
 
     persona = wizard.persona;
+    traits = wizard.traits;
+    perceptions = wizard.perceptions;
   }
 
   // Create config with wizard results
   const filePath = writeConfig(dir, {
     name,
+    persona,
     port,
     runner,
     notifications,
+    perceptions,
   });
   console.log(`Created ${path.relative(dir, filePath)}`);
 
@@ -137,7 +143,7 @@ async function cmdInit(): Promise<void> {
 
   // Phase D: Memory space scaffold
   initGitRepo(dir);
-  const scaffold = await scaffoldMemorySpace(dir, { name, persona }, {
+  const scaffold = await scaffoldMemorySpace(dir, { name, persona, traits }, {
     obsidian: env.obsidian.available,
   });
   if (scaffold.created.length > 0) {
@@ -191,6 +197,37 @@ if [ "$CHANGES" -gt 0 ]; then
   echo ""
   echo "Modified:"
   git status --porcelain 2>/dev/null | head -10
+fi
+`,
+    'chrome-cdp.sh': `#!/bin/bash
+# Chrome CDP perception plugin — reports active browser tab information.
+
+CDP_URL="http://localhost:9222/json"
+
+if ! command -v curl &>/dev/null; then
+  echo "curl not found"
+  exit 0
+fi
+
+if ! command -v jq &>/dev/null; then
+  echo "jq not found (install jq for browser tab perception)"
+  exit 0
+fi
+
+if ! curl -sf --connect-timeout 1 "$CDP_URL/version" >/dev/null; then
+  echo "Chrome CDP not available on :9222"
+  exit 0
+fi
+
+tabs=$(curl -sf --connect-timeout 1 "$CDP_URL" | jq '[.[] | select(.type=="page")]')
+count=$(echo "$tabs" | jq 'length')
+echo "Open tabs: $count"
+
+if [ "$count" -gt 0 ]; then
+  title=$(echo "$tabs" | jq -r '.[0].title // "unknown"')
+  url=$(echo "$tabs" | jq -r '.[0].url // "unknown"')
+  echo "Active: $title"
+  echo "URL: $url"
 fi
 `,
   };

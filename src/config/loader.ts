@@ -115,6 +115,7 @@ export function generateConfig(options?: {
   port?: number;
   runner?: string;
   notifications?: Array<{ type: string; options?: Record<string, unknown> }>;
+  perceptions?: Array<'workspace' | 'browser-tabs' | 'git-activity'>;
 }): string {
   const config = structuredClone(STARTER_CONFIG);
   if (options?.name) config.agent.name = options.name;
@@ -133,6 +134,39 @@ export function generateConfig(options?: {
         type: n.type,
         ...(n.options ? { options: n.options } : {}),
       })),
+    };
+  }
+
+  // Apply wizard-selected perception plugins
+  if (options?.perceptions && options.perceptions.length > 0) {
+    const selected = new Set(options.perceptions);
+    const plugins: NonNullable<AgentConfig['perception']>['plugins'] = [];
+
+    if (selected.has('workspace')) {
+      plugins.push({
+        name: 'tasks',
+        script: './plugins/task-tracker.sh',
+        category: 'workspace',
+      });
+    }
+    if (selected.has('browser-tabs')) {
+      plugins.push({
+        name: 'browser-tabs',
+        script: './plugins/chrome-cdp.sh',
+        category: 'browser',
+      });
+    }
+    if (selected.has('git-activity')) {
+      plugins.push({
+        name: 'git',
+        script: './plugins/git-status.sh',
+        category: 'workspace',
+      });
+    }
+
+    config.perception = {
+      ...config.perception,
+      plugins,
     };
   }
 
