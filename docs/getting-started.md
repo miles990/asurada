@@ -12,7 +12,8 @@ Build a perception-driven AI agent in 10 minutes.
 ## Step 1: Install
 
 ```bash
-npm install asurada
+git clone https://github.com/miles990/asurada.git
+cd asurada && npm install && npm run build
 ```
 
 ## Step 2: Create Your Agent
@@ -266,9 +267,6 @@ Background tasks run in parallel (up to `maxConcurrent`). Results come back to t
 # Start your agent
 npx tsx my-agent.ts
 
-# Or use the CLI
-npx asurada init      # Setup wizard
-npx asurada start     # Start agent
-npx asurada status    # Check status
-npx asurada stop      # Stop agent
+# Or use the setup wizard
+npx tsx src/wizard.ts
 ```
