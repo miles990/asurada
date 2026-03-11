@@ -23,6 +23,13 @@ import type {
   CognitiveType,
 } from './index-types.js';
 
+/** Stop words for relevance matching (shared with MemorySearch) */
+const RELEVANCE_STOP_WORDS = new Set([
+  'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'has', 'was',
+  'one', 'our', 'out', 'is', 'it', 'in', 'to', 'of', 'on', 'at', 'an', 'or',
+  'if', 'no', 'so', 'do', 'my', 'up', 'this', 'that', 'with', 'from', 'have',
+]);
+
 /** Generate a short unique ID (12 chars, URL-safe) */
 function generateId(): string {
   return randomBytes(9).toString('base64url');
@@ -232,6 +239,154 @@ export class MemoryIndex {
         return `[[${refId}|${display}]]`;
       })
       .filter((l): l is string => l !== null);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Relevance queries (Phase 6: Memory Index Context Boosting)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Find entries relevant to a query string.
+   * Matches against content, tags, and refs. Multi-token queries use OR logic.
+   * Direction-change entries that reference topic X also boost topic Y (cross-topic linking).
+   */
+  async findRelevant(
+    query: string,
+    options?: { limit?: number; types?: CognitiveType[] },
+  ): Promise<IndexEntry[]> {
+    const index = await this.resolve();
+    const limit = options?.limit ?? 10;
+
+    // Tokenize query: split on whitespace + common delimiters, lowercase, filter noise
+    const tokens = query
+      .toLowerCase()
+      .split(/[\s,;:./\-_]+/)
+      .filter(t => t.length > 1)
+      .filter(t => !RELEVANCE_STOP_WORDS.has(t));
+
+    if (tokens.length === 0) return [];
+
+    const scored: Array<{ entry: IndexEntry; score: number }> = [];
+
+    for (const entry of index.values()) {
+      // Filter by types if specified
+      if (options?.types && !options.types.includes(entry.type)) continue;
+
+      let score = 0;
+      const contentLower = entry.content.toLowerCase();
+
+      for (const token of tokens) {
+        // Content match (strongest signal)
+        if (contentLower.includes(token)) score += 3;
+        // Tag match
+        if (entry.tags?.some(t => t.toLowerCase().includes(token))) score += 5;
+        // Ref match (entry references something with this name)
+        if (entry.refs?.some(r => r.toLowerCase().includes(token))) score += 2;
+        // Source match
+        if (entry.source?.toLowerCase().includes(token)) score += 1;
+      }
+
+      if (score > 0) {
+        // Recency boost: entries from last 7 days get +2
+        const age = Date.now() - new Date(entry.createdAt).getTime();
+        if (age < 7 * 24 * 60 * 60 * 1000) score += 2;
+
+        scored.push({ entry, score });
+      }
+    }
+
+    // Sort by score descending, then by recency
+    scored.sort((a, b) =>
+      b.score - a.score || b.entry.createdAt.localeCompare(a.entry.createdAt),
+    );
+
+    return scored.slice(0, limit).map(s => s.entry);
+  }
+
+  /**
+   * Find topic names relevant to a query, using memory-index entries as bridge.
+   * Combines direct tag/ref matching with cross-topic linking via direction-change entries.
+   *
+   * Returns topic names sorted by relevance score.
+   */
+  async getRelevantTopics(query: string, limit = 3): Promise<string[]> {
+    const entries = await this.findRelevant(query, { limit: 20 });
+    const topicScores = new Map<string, number>();
+
+    for (const entry of entries) {
+      // Extract topic names from tags
+      if (entry.tags) {
+        for (const tag of entry.tags) {
+          topicScores.set(tag, (topicScores.get(tag) ?? 0) + 3);
+        }
+      }
+
+      // Extract topic names from refs (e.g. "topic:agent-architecture")
+      if (entry.refs) {
+        for (const ref of entry.refs) {
+          const topicMatch = ref.match(/^topic:(.+)/);
+          if (topicMatch) {
+            topicScores.set(topicMatch[1], (topicScores.get(topicMatch[1]) ?? 0) + 4);
+          }
+        }
+      }
+
+      // Direction-change entries boost ALL referenced topics (cross-topic linking)
+      if (entry.type === 'direction-change' && entry.refs) {
+        for (const ref of entry.refs) {
+          const topicMatch = ref.match(/^topic:(.+)/);
+          if (topicMatch) {
+            topicScores.set(topicMatch[1], (topicScores.get(topicMatch[1]) ?? 0) + 2);
+          }
+        }
+      }
+
+      // Source file as implicit topic
+      if (entry.source) {
+        const topicFromSource = entry.source.replace(/\.md$/, '');
+        topicScores.set(topicFromSource, (topicScores.get(topicFromSource) ?? 0) + 1);
+      }
+    }
+
+    return Array.from(topicScores.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([topic]) => topic);
+  }
+
+  /**
+   * Get direction-change entries related to given topics.
+   * Used by ContextBuilder to inject strategy audit trails alongside topic content.
+   */
+  async getDirectionChanges(topicNames: string[], limit = 5): Promise<IndexEntry[]> {
+    const index = await this.resolve();
+    const results: IndexEntry[] = [];
+
+    const topicSet = new Set(topicNames.map(t => t.toLowerCase()));
+
+    for (const entry of index.values()) {
+      if (entry.type !== 'direction-change') continue;
+
+      // Match by tags
+      const tagMatch = entry.tags?.some(t => topicSet.has(t.toLowerCase()));
+      // Match by refs (topic:xxx format)
+      const refMatch = entry.refs?.some(r => {
+        const m = r.match(/^topic:(.+)/);
+        return m && topicSet.has(m[1].toLowerCase());
+      });
+      // Match by content mention
+      const contentMatch = topicNames.some(t =>
+        entry.content.toLowerCase().includes(t.toLowerCase()),
+      );
+
+      if (tagMatch || refMatch || contentMatch) {
+        results.push(entry);
+      }
+    }
+
+    // Most recent first
+    results.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return results.slice(0, limit);
   }
 
   /** Generate a Markdown summary of an entry for Obsidian vault. */

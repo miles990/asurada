@@ -70,6 +70,7 @@ export {
   MemoryStore,
   MemorySearch,
   MemoryIndex,
+  ContextBuilder,
   type MemoryEntry,
   type SearchResult,
   type MemoryConfig,
@@ -79,6 +80,10 @@ export {
   type IndexQuery,
   type GraphEdge,
   type ResolvedIndex,
+  type ContextSection,
+  type DirectionChangeContext,
+  type MemoryContextResult,
+  type ContextBuildOptions,
 } from './memory/index.js';
 
 export {

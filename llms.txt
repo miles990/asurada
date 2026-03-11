@@ -8,7 +8,8 @@ Asurada is a TypeScript framework for building autonomous AI agents that react t
 
 - **Perception-First**: Shell scripts define what the agent can see. Different environments produce different behaviors.
 - **File = Truth**: Markdown + JSONL storage. Human-readable, git-friendly, no database.
-- **Memory Index**: Append-only cognitive graph with 8 types (remember, commitment, learning, thread, goal, task, observation, opinion) and cross-references via `refs[]`.
+- **Memory Index**: Append-only cognitive graph with 10 types (remember, commitment, learning, thread, goal, task, observation, opinion, direction-change, understanding) and cross-references via `refs[]`.
+- **Context Builder**: Memory-aware context assembly — keyword topic loading + memory-index boosting + direction-change audit trail injection.
 - **OODA Loop**: Perceive → Orient → Decide → Act → repeat. Timer and event-driven.
 - **Multi-Lane**: Up to 6 concurrent background tasks (code, learn, research, create, review, shell).
 - **Model Routing**: Three-tier SKIP/REFLECT/ESCALATE with shadow mode for safe rollout.

@@ -94,7 +94,7 @@ Perception (See)  →  OODA Loop (Think)  →  Actions (Do)
 |--------|-------------|
 | **Perception** | Plugin system + streams. Shell scripts as sensors, `distinctUntilChanged` dedup |
 | **OODA Loop** | Perception → build context → LLM cycle → parse actions → execute. Crash-resumable |
-| **Memory** | Append-only JSONL store + FTS5 full-text search + cognitive graph index |
+| **Memory** | Append-only JSONL store + FTS5 full-text search + cognitive graph index + ContextBuilder |
 | **Event Bus** | Typed events + wildcard patterns + reactive primitives (debounce, throttle) |
 | **Multi-Lane** | Main + foreground + 6 background lanes. Organic parallelism |
 | **Notification** | Provider interface — console, Telegram, Discord, Slack, email |
@@ -125,7 +125,7 @@ Cold   (Long-term)  → MEMORY.md + topics/*.md
 Index  (Graph)      → memory-index.jsonl — unified cognitive graph
 ```
 
-The memory index uses `refs[]` to link any entry to any other entry, forming a natural knowledge graph. Combined with Obsidian's `[[wikilinks]]`, you can visualize your agent's thinking in graph view.
+The memory index uses `refs[]` to link any entry to any other entry, forming a natural knowledge graph. `ContextBuilder` combines topic loading + index-based relevance boosting + direction-change audit trails into cycle prompts. Combined with Obsidian's `[[wikilinks]]`, you can visualize your agent's thinking in graph view.
 
 ## Obsidian Integration
 

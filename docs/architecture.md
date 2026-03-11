@@ -178,9 +178,18 @@ Three layers — store, search, and index.
 - Graceful degradation if sqlite3 unavailable
 
 **MemoryIndex** (`memory-index.ts`): Append-only JSONL cognitive graph.
-- Nodes: concepts, topics, sources
-- Edges: relationships between nodes
+- 10 cognitive types: remember, commitment, learning, thread, goal, task, observation, opinion, direction-change, understanding
+- Edges via `refs[]`: any entry → any entry
+- `findRelevant(query)`: multi-dimensional relevance matching (content + tags + refs + recency)
+- `getRelevantTopics(query)`: surfaces related topics via index entries as bridge
+- `getDirectionChanges(topics)`: retrieves strategy audit trails for loaded topics
 - Supports Obsidian wikilinks via VaultSync
+
+**ContextBuilder** (`context-builder.ts`): Memory-aware context assembly for OODA cycles.
+- Combines MemoryStore (topic files) + MemoryIndex (semantic boosting) + MemorySearch (FTS5)
+- Keyword-based topic loading preserved, plus index-boosted additional topics (max 2 extra)
+- Direction-change entries automatically injected alongside related topics
+- Budget-aware: character limits per section, configurable max topics
 
 ### Lanes (`src/lanes/`)
 
@@ -334,7 +343,9 @@ src/
 ├── memory/
 │   ├── store.ts          # File-based append-only storage
 │   ├── search.ts         # FTS5 full-text search
-│   ├── memory-index.ts   # Cognitive graph (JSONL)
+│   ├── memory-index.ts   # Cognitive graph (JSONL) + relevance queries
+│   ├── context-builder.ts # Memory-aware context assembly
+│   ├── index-types.ts    # Cognitive type definitions
 │   └── types.ts
 ├── lanes/
 │   ├── manager.ts        # Multi-tentacle task orchestration
