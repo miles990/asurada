@@ -112,3 +112,13 @@ export {
   type CycleResult,
   type ParsedAction,
 } from './loop/index.js';
+
+// HTTP API
+export {
+  startServer,
+  type AgentServer,
+  type ServerOptions,
+  type Message,
+  type AgentStatus,
+  type HealthResponse,
+} from './api/index.js';
