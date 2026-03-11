@@ -225,6 +225,87 @@ export async function startServer(
     res.json({ messages });
   });
 
+  // Memory search
+  app.get('/api/memory/search', (req, res) => {
+    const query = req.query.q as string;
+    if (!query) {
+      res.status(400).json({ error: 'Missing query parameter: q' });
+      return;
+    }
+    const limit = parseInt(req.query.limit as string, 10) || 10;
+    try {
+      const results = agent.search.search(query, limit);
+      res.json({ results, query });
+    } catch {
+      res.json({ results: [], query, error: 'Search unavailable' });
+    }
+  });
+
+  // Memory index — query entries
+  app.get('/api/index', async (req, res) => {
+    try {
+      const type = req.query.type as string | undefined;
+      const tags = req.query.tags ? (req.query.tags as string).split(',') : undefined;
+      const limit = parseInt(req.query.limit as string, 10) || 50;
+      const entries = await agent.index.query({ type: type as import('../memory/index-types.js').CognitiveType, tags, limit });
+      res.json({ entries, total: entries.length });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Index query failed' });
+    }
+  });
+
+  // Memory index stats
+  app.get('/api/index/stats', async (_req, res) => {
+    try {
+      const stats = await agent.index.stats();
+      res.json(stats);
+    } catch {
+      res.json({ total: 0, error: 'Index unavailable' });
+    }
+  });
+
+  // Lanes status
+  app.get('/api/lanes', (_req, res) => {
+    const stats = agent.lanes.stats();
+    const completed = agent.lanes.drain();
+    // Put results back (drain is destructive, but we want to show them)
+    res.json({
+      ...stats,
+      recentCompleted: completed.map(r => ({
+        id: r.id,
+        type: r.type,
+        status: r.status,
+        durationMs: r.durationMs,
+        output: r.output?.slice(0, 500),
+      })),
+    });
+  });
+
+  // Perception plugin stats
+  app.get('/api/perception', (_req, res) => {
+    const results = agent.perception.getCachedResults();
+    const plugins = results.map(r => ({
+      name: r.name,
+      // category from plugin config, not on result
+      hasOutput: !!r.output,
+      outputLength: r.output?.length ?? 0,
+    }));
+    res.json({ plugins, total: plugins.length });
+  });
+
+  // Serve dashboard UI
+  app.get('/dashboard', (_req, res) => {
+    const dashboardPath = path.join(
+      path.dirname(new URL(import.meta.url).pathname),
+      '../ui/dashboard.html',
+    );
+    if (fs.existsSync(dashboardPath)) {
+      res.sendFile(dashboardPath);
+    } else {
+      res.status(404).send('Dashboard not found');
+    }
+  });
+
   // --- Start server ---
   return new Promise<AgentServer>((resolve, reject) => {
     const server = app.listen(port, () => {
