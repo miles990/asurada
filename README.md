@@ -146,6 +146,51 @@ Open Obsidian → see your agent's mind.
 | Runs on | Cloud | Platform | **Your machine** |
 | Evolves | No | Limited | **Self-improving (skills, perception, behavior)** |
 
+## Setup Wizard
+
+First time? The wizard walks you through everything:
+
+```bash
+npx asurada init
+```
+
+It detects your environment (OS, Chrome, available LLMs), asks you to name your agent and choose a persona, connects your notification channel (Telegram, Discord, or console), and scaffolds a memory directory with a starter SOUL.md.
+
+On first start, your agent introduces itself — showing what it can perceive and how to interact with it.
+
+## Examples
+
+| Example | What it shows |
+|---------|--------------|
+| [`minimal.ts`](examples/minimal.ts) | Mock runner, basic action parsing. No LLM needed |
+| [`with-perception.ts`](examples/with-perception.ts) | Real perception plugins (git, disk, uptime). Shows environment-driven behavior |
+
+```bash
+npx tsx examples/minimal.ts          # Quick test
+npx tsx examples/with-perception.ts  # See perception in action
+```
+
+## Writing Perception Plugins
+
+A plugin is just a shell command that outputs text:
+
+```yaml
+perception:
+  plugins:
+    - name: weather
+      script: "curl -s 'wttr.in/?format=3'"
+      category: environment
+      interval: 300000  # 5 minutes
+```
+
+The output appears in the LLM's context as `<weather>Taipei: ☀️ +28°C</weather>`. Your agent sees the world through its plugins — each agent's Umwelt is different.
+
+**Tips:**
+- Scripts should be fast (<10s) and produce concise output
+- Use `category` to group related plugins and set shared intervals
+- `outputCap` limits output length (default: 4000 chars)
+- `distinctUntilChanged` automatically deduplicates — unchanged output doesn't trigger a new cycle
+
 ## Requirements
 
 - Node.js >= 20
