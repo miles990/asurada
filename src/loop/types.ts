@@ -74,9 +74,10 @@ export interface AgentLoopOptions {
 
   /**
    * Build the cycle prompt from context.
-   * If not provided, uses a default that includes perception data.
+   * If not provided, uses a default that includes perception + memory data.
+   * Can be async (e.g. to query ContextBuilder).
    */
-  buildPrompt?: (context: CycleContext) => string;
+  buildPrompt?: (context: CycleContext) => string | Promise<string>;
 
   /**
    * Tag namespace for action parsing (default: agent name or 'agent').

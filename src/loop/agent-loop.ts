@@ -173,9 +173,9 @@ export class AgentLoop {
         agentName: this.agentName,
       };
 
-      // 3. Build prompt
+      // 3. Build prompt (may be async if using ContextBuilder)
       const prompt = this.options.buildPrompt
-        ? this.options.buildPrompt(context)
+        ? await this.options.buildPrompt(context)
         : this.defaultPrompt(context);
 
       // 4. Get system prompt

@@ -37,6 +37,8 @@ import { OpenAiCompatibleRunner } from './loop/runners/openai-compatible.js';
 import type { RunnerRef } from './config/types.js';
 import { VaultSync } from './obsidian/vault-sync.js';
 import { initVault } from './obsidian/vault-init.js';
+import { ContextBuilder } from './memory/context-builder.js';
+import type { ParsedAction, CycleContext } from './loop/types.js';
 
 // === Agent Interface ===
 
@@ -57,6 +59,8 @@ export interface Agent {
   readonly index: MemoryIndex;
   /** Obsidian vault sync (null if obsidian integration disabled) */
   readonly vault: VaultSync | null;
+  /** Memory-aware context builder (for prompts) */
+  readonly contextBuilder: ContextBuilder;
   /** Logger (JSONL file-based) */
   readonly logger: Logger;
   /** Multi-lane task manager */
@@ -225,6 +229,9 @@ function buildAgent(
     });
   }
 
+  // --- 4c. Context Builder ---
+  const contextBuilder = new ContextBuilder(memory, index, search);
+
   // --- 5. Perception ---
   const perception = new PerceptionManager();
 
@@ -281,9 +288,106 @@ function buildAgent(
       }
     }
 
+    // --- Default buildPrompt: perception + ContextBuilder memory ---
+    const defaultBuildPrompt = options.loop.buildPrompt ?? (async (ctx: CycleContext): Promise<string> => {
+      const parts: string[] = [];
+
+      parts.push(`Cycle #${ctx.cycleNumber} | Trigger: ${ctx.trigger.type}`);
+
+      // Perception
+      if (Object.keys(ctx.perception).length > 0) {
+        parts.push('\n## Perception\n');
+        for (const [name, output] of Object.entries(ctx.perception)) {
+          parts.push(`<${name}>\n${output}\n</${name}>\n`);
+        }
+      }
+
+      // Memory context (via ContextBuilder)
+      const triggerText = ctx.trigger.event?.data
+        ? JSON.stringify(ctx.trigger.event.data).slice(0, 200)
+        : ctx.trigger.type;
+      try {
+        const memCtx = await contextBuilder.build(triggerText);
+        const memoryPrompt = contextBuilder.formatForPrompt(memCtx);
+        if (memoryPrompt) {
+          parts.push('\n## Memory\n');
+          parts.push(memoryPrompt);
+        }
+      } catch {
+        // Memory context is best-effort — don't break the cycle
+      }
+
+      // SOUL.md (identity)
+      const soulPath = path.join(memoryDir, 'SOUL.md');
+      if (fs.existsSync(soulPath)) {
+        try {
+          const soul = fs.readFileSync(soulPath, 'utf-8');
+          parts.push('\n<soul>\n' + soul + '\n</soul>\n');
+        } catch { /* best-effort */ }
+      }
+
+      return parts.join('\n');
+    });
+
+    // --- Default onAction: dispatch tags to memory/notifications/lanes ---
+    const defaultOnAction = options.loop.onAction ?? (async (action: ParsedAction): Promise<void> => {
+      switch (action.tag) {
+        case 'remember': {
+          const topic = action.attrs.topic;
+          await memory.append(action.content, topic);
+          await index.create('remember', action.content, {
+            tags: topic ? [topic] : undefined,
+            source: `cycle`,
+          }).catch(() => {});
+          slog('action', `remember: ${action.content.slice(0, 80)}${topic ? ` [${topic}]` : ''}`);
+          break;
+        }
+        case 'chat': {
+          await notifications.notify(action.content);
+          events.emit('action:chat', { content: action.content });
+          slog('action', `chat: ${action.content.slice(0, 80)}`);
+          break;
+        }
+        case 'task': {
+          await index.create('task', action.content, { status: 'active' }).catch(() => {});
+          events.emit('action:task', { content: action.content, attrs: action.attrs });
+          slog('action', `task: ${action.content.slice(0, 80)}`);
+          break;
+        }
+        case 'inner': {
+          const innerPath = path.join(dataDir, 'inner.md');
+          fs.writeFileSync(innerPath, action.content, 'utf-8');
+          slog('action', `inner: updated working memory`);
+          break;
+        }
+        case 'delegate': {
+          const taskType = action.attrs.type ?? 'code';
+          const workdir = action.attrs.workdir ?? baseDir;
+          lanes.spawn({
+            type: taskType,
+            prompt: action.content,
+            workdir,
+          });
+          slog('action', `delegate [${taskType}]: ${action.content.slice(0, 60)}`);
+          break;
+        }
+        default: {
+          // Generic: emit as event for user-land handlers
+          events.emit(`action:${action.tag}`, {
+            tag: action.tag,
+            content: action.content,
+            attrs: action.attrs,
+          });
+          break;
+        }
+      }
+    });
+
     loop = new AgentLoop(events, perception, agentName, {
       ...options.loop,
       runner: effectiveRunner,
+      buildPrompt: defaultBuildPrompt,
+      onAction: defaultOnAction,
       defaultInterval: loopInterval,
       minInterval: 30_000,
       maxInterval: 14_400_000,
@@ -351,6 +455,7 @@ function buildAgent(
     search,
     index,
     vault,
+    contextBuilder,
     logger,
     lanes,
     cron: cronScheduler,
