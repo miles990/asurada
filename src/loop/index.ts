@@ -1,4 +1,10 @@
 export { AgentLoop } from './agent-loop.js';
+export {
+  ModelRouter,
+  calculateRoutingTemperature,
+  buildTriagePrompt,
+  parseRoutingDecision,
+} from './model-router.js';
 export { parseActions, parseDuration } from './action-parser.js';
 export {
   ClaudeCliRunner,
@@ -14,3 +20,8 @@ export type {
   CycleResult,
   ParsedAction,
 } from './types.js';
+export type {
+  RoutingDecision,
+  ModelRouterOptions,
+  RouteLogEvent,
+} from './model-router.js';
