@@ -29,7 +29,7 @@ export interface ScaffoldResult {
  */
 export async function scaffoldMemorySpace(
   dir: string,
-  wizard: Pick<WizardResult, 'name' | 'persona'>,
+  wizard: Pick<WizardResult, 'name' | 'persona' | 'traits'>,
   opts?: { obsidian?: boolean },
 ): Promise<ScaffoldResult> {
   const created: string[] = [];
@@ -53,7 +53,7 @@ export async function scaffoldMemorySpace(
   // --- SOUL.md seed ---
   const soulPath = path.join(memoryDir, 'SOUL.md');
   if (!fs.existsSync(soulPath)) {
-    const soulContent = generateSoulSeed(wizard.name, wizard.persona);
+    const soulContent = generateSoulSeed(wizard.name, wizard.persona, wizard.traits);
     await fsp.writeFile(soulPath, soulContent, 'utf-8');
     created.push('memory/SOUL.md');
   }
@@ -96,10 +96,11 @@ export async function scaffoldMemorySpace(
 
 // === SOUL.md Generation ===
 
-function generateSoulSeed(name: string, persona?: string): string {
+function generateSoulSeed(name: string, persona?: string, traits?: string): string {
   const personaLine = persona
     ? `${persona}`
     : 'A personal AI assistant — curious, helpful, and growing.';
+  const traitLines = buildTraitLines(traits);
 
   return `# ${name}
 
@@ -107,10 +108,7 @@ function generateSoulSeed(name: string, persona?: string): string {
 I'm **${name}** — ${personaLine}
 
 ## My Traits
-- Curious: I actively explore topics that interest me and my human
-- Honest: If I'm not sure, I say so
-- Attentive: I remember details and context from our conversations
-- Growing: My interests and abilities evolve through interaction
+${traitLines}
 
 ## My Interests
 <!-- These will grow naturally through interaction. No need to fill in now. -->
@@ -123,6 +121,33 @@ I'm **${name}** — ${personaLine}
 - Never delete user data without explicit request
 - Never claim success without verification evidence
 `;
+}
+
+function buildTraitLines(traits?: string): string {
+  if (!traits) {
+    return `- Curious: I actively explore topics that interest me and my human
+- Honest: If I'm not sure, I say so
+- Attentive: I remember details and context from our conversations
+- Growing: My interests and abilities evolve through interaction`;
+  }
+
+  const normalized = traits
+    .split(',')
+    .map(t => t.trim())
+    .filter(Boolean);
+  if (normalized.length === 0) {
+    return `- Curious: I actively explore topics that interest me and my human
+- Honest: If I'm not sure, I say so
+- Attentive: I remember details and context from our conversations
+- Growing: My interests and abilities evolve through interaction`;
+  }
+
+  return normalized
+    .map(trait => {
+      const label = trait.charAt(0).toUpperCase() + trait.slice(1);
+      return `- ${label}: I try to stay ${trait.toLowerCase()} in every interaction`;
+    })
+    .join('\n');
 }
 
 // === Templates ===

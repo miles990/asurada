@@ -18,6 +18,10 @@ export interface WizardResult {
   name: string;
   /** Agent persona (Phase C) */
   persona?: string;
+  /** Optional comma-separated traits from wizard input */
+  traits?: string;
+  /** Perception plugins selected in wizard */
+  perceptions?: Array<'workspace' | 'browser-tabs' | 'git-activity'>;
   /** LLM runner type */
   runner?: 'anthropic-api' | 'claude-cli' | 'openai-compatible';
   /** LLM model */
@@ -59,6 +63,26 @@ async function choose(
   const num = parseInt(answer, 10);
   if (num >= 1 && num <= options.length) return num - 1;
   return defaultIdx;
+}
+
+async function chooseMany(
+  rl: readline.Interface,
+  question: string,
+  options: string[],
+): Promise<number[]> {
+  for (let i = 0; i < options.length; i++) {
+    console.log(`  ${i + 1}. ${options[i]}`);
+  }
+
+  const answer = await ask(rl, `${question} [comma-separated, Enter to skip]: `);
+  if (!answer) return [];
+
+  const selected = new Set<number>();
+  for (const part of answer.split(',')) {
+    const num = parseInt(part.trim(), 10);
+    if (num >= 1 && num <= options.length) selected.add(num - 1);
+  }
+  return Array.from(selected).sort((a, b) => a - b);
 }
 
 // === Validation ===
@@ -152,8 +176,11 @@ export async function runWizard(env: DetectionResult): Promise<WizardResult> {
     const nameInput = await ask(rl, 'What should your agent be called? [My Assistant]: ');
     result.name = nameInput || 'My Assistant';
 
-    const personaInput = await ask(rl, 'One-line persona (optional): ');
-    if (personaInput) result.persona = personaInput;
+    const personaInput = await ask(rl, 'One-line persona: ');
+    result.persona = personaInput;
+
+    const traitsInput = await ask(rl, 'Traits (comma-separated, optional): ');
+    if (traitsInput) result.traits = traitsInput;
 
     // Phase B: Brain
     console.log('\n--- Phase B: Connection ---\n');
@@ -255,6 +282,27 @@ export async function runWizard(env: DetectionResult): Promise<WizardResult> {
       }
     } else if (mouthChoice === 1) {
       result.notifications.push({ type: 'console' });
+    }
+
+    // Perception — what should the agent observe?
+    console.log('\nPerception — what should your agent watch?\n');
+    const perceptionOptions: Array<{ label: string; value: 'workspace' | 'browser-tabs' | 'git-activity' }> = [
+      { label: 'Workspace changes', value: 'workspace' },
+    ];
+    if (env.chrome.available) {
+      perceptionOptions.push({ label: 'Browser tabs', value: 'browser-tabs' });
+    }
+    if (env.git.available) {
+      perceptionOptions.push({ label: 'Git activity', value: 'git-activity' });
+    }
+
+    const selected = await chooseMany(
+      rl,
+      'Select perception sources',
+      perceptionOptions.map(o => o.label),
+    );
+    if (selected.length > 0) {
+      result.perceptions = selected.map(i => perceptionOptions[i].value);
     }
 
     console.log();
