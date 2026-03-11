@@ -5,6 +5,15 @@
  */
 
 export {
+  EventBus,
+  debounce,
+  distinctUntilChanged,
+  type AgentEvent,
+  type EventPattern,
+  type EventHandler,
+} from './core/index.js';
+
+export {
   NotificationManager,
   type NotificationProvider,
   type NotificationStats,
