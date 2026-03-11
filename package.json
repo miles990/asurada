@@ -20,7 +20,7 @@
     }
   },
   "scripts": {
-    "build": "tsc && cp -r src/ui dist/ui",
+    "build": "tsc && mkdir -p dist/ui && cp src/ui/* dist/ui/",
     "typecheck": "tsc --noEmit",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",

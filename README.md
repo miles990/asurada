@@ -220,7 +220,7 @@ For the full guide — real-world examples, advanced patterns (circuit breaker, 
 
 ## Status
 
-Early development. The core architecture is stable — perception loop, memory, multi-lane, obsidian integration all work. APIs may change.
+Alpha — feature-complete and tested (77 tests, CI green). The core architecture is stable: perception loop, memory index, multi-lane execution, model routing, Obsidian integration. APIs may change before 1.0.
 
 Born from [mini-agent](https://github.com/miles990/mini-agent), a perception-driven personal AI that has run 1,400+ autonomous cycles.
 
