@@ -113,11 +113,28 @@ export function generateConfig(options?: {
   name?: string;
   persona?: string;
   port?: number;
+  runner?: string;
+  notifications?: Array<{ type: string; options?: Record<string, unknown> }>;
 }): string {
   const config = structuredClone(STARTER_CONFIG);
   if (options?.name) config.agent.name = options.name;
   if (options?.persona) config.agent.persona = options.persona;
   if (options?.port) config.agent.port = options.port;
+
+  // Apply wizard-selected runner
+  if (options?.runner) {
+    config.loop = { ...config.loop, runner: options.runner };
+  }
+
+  // Apply wizard-selected notification providers
+  if (options?.notifications && options.notifications.length > 0) {
+    config.notification = {
+      providers: options.notifications.map(n => ({
+        type: n.type,
+        ...(n.options ? { options: n.options } : {}),
+      })),
+    };
+  }
 
   const header = `# Asurada Agent Configuration
 # Docs: https://github.com/miles990/asurada

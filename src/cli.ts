@@ -23,7 +23,7 @@ import { createProcessManager } from './process/factory.js';
 import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
 import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
 import { slog } from './logging/index.js';
-import { detectEnvironment, formatDetection } from './setup/index.js';
+import { detectEnvironment, formatDetection, runWizard } from './setup/index.js';
 
 // === Parse Args ===
 
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
 
 // --- init ---
 
-function cmdInit(): void {
+async function cmdInit(): Promise<void> {
   const dir = process.cwd();
   const existing = findConfigFile(dir);
   if (existing) {
@@ -86,7 +86,6 @@ function cmdInit(): void {
   console.log('\nDetecting environment...\n');
   const env = detectEnvironment();
   console.log(formatDetection(env));
-  console.log();
 
   // Validate hard requirements
   if (!env.git.available) {
@@ -94,16 +93,41 @@ function cmdInit(): void {
     process.exit(1);
   }
 
-  if (!env.llm.anthropicApi && !env.llm.claudeCli.available) {
-    console.warn('Warning: No LLM runner detected.');
-    console.warn('  Set ANTHROPIC_API_KEY or install Claude CLI before starting.');
-  }
-
-  // Create config with detected defaults
-  const name = option('name') ?? 'My Assistant';
+  // Phase B & C: Interactive wizard (or use CLI flags for non-interactive)
+  const nonInteractive = flag('yes') || flag('y') || !process.stdin.isTTY;
   const port = option('port') ? parseInt(option('port')!, 10) : undefined;
 
-  const filePath = writeConfig(dir, { name, port });
+  let name = option('name') ?? 'My Assistant';
+  let runner: string | undefined;
+  let notifications: Array<{ type: string; options?: Record<string, unknown> }> = [];
+
+  if (nonInteractive) {
+    // Non-interactive: use defaults + env detection
+    if (env.llm.anthropicApi) runner = 'anthropic-api';
+    else if (env.llm.claudeCli.available) runner = 'claude-cli';
+    notifications = [{ type: 'console' }];
+  } else {
+    // Interactive wizard
+    const wizard = await runWizard(env);
+    name = wizard.name;
+    runner = wizard.runner;
+    notifications = wizard.notifications.length > 0
+      ? wizard.notifications
+      : [{ type: 'console' }];
+
+    // Apply persona via config
+    if (wizard.persona) {
+      // Will be set in writeConfig options
+    }
+  }
+
+  // Create config with wizard results
+  const filePath = writeConfig(dir, {
+    name,
+    port,
+    runner,
+    notifications,
+  });
   console.log(`Created ${path.relative(dir, filePath)}`);
 
   // Create starter plugins so perception works out of the box
@@ -114,10 +138,9 @@ function cmdInit(): void {
 
   console.log();
   console.log('Next steps:');
-  console.log(`  1. Edit asurada.yaml to name your agent and configure notifications`);
-  console.log('  2. asurada start');
+  console.log('  1. asurada start');
   if (env.obsidian.available) {
-    console.log('  3. Open Obsidian to browse agent memory as a vault');
+    console.log('  2. Open Obsidian to browse agent memory as a vault');
   }
 }
 
