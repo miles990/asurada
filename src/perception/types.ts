@@ -7,6 +7,8 @@ export interface PerceptionPlugin {
   name: string;
   /** Path to executable script (absolute or relative to cwd) */
   script: string;
+  /** Inline shell command (alternative to script — runs via /bin/sh -c) */
+  command?: string;
   /** Category for grouping and interval defaults (e.g. 'workspace', 'browser') */
   category?: string;
   /** Polling interval in ms. Overrides category default. 0 = event-driven only. */

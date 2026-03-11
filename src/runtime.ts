@@ -288,6 +288,11 @@ function buildAgent(
       }
     }
 
+    // --- Default system prompt: tells the LLM how to be an agent ---
+    // Namespace must be valid XML (no spaces). Default to 'agent' for consistency with docs/examples.
+    const namespace = options.loop.actionNamespace ?? 'agent';
+    const defaultSystemPrompt = options.loop.systemPrompt ?? buildDefaultSystemPrompt(config, agentName, namespace);
+
     // --- Default buildPrompt: perception + ContextBuilder memory ---
     const defaultBuildPrompt = options.loop.buildPrompt ?? (async (ctx: CycleContext): Promise<string> => {
       const parts: string[] = [];
@@ -386,8 +391,10 @@ function buildAgent(
     loop = new AgentLoop(events, perception, agentName, {
       ...options.loop,
       runner: effectiveRunner,
+      systemPrompt: defaultSystemPrompt,
       buildPrompt: defaultBuildPrompt,
       onAction: defaultOnAction,
+      actionNamespace: namespace,
       defaultInterval: loopInterval,
       minInterval: 30_000,
       maxInterval: 14_400_000,
@@ -433,7 +440,8 @@ function buildAgent(
   const perceptionConfig: PerceptionConfig = {
     plugins: (config.perception?.plugins ?? []).map(p => ({
       name: p.name,
-      script: path.resolve(baseDir, p.script),
+      script: p.command ? '' : path.resolve(baseDir, p.script ?? ''),
+      command: p.command,
       category: p.category,
       interval: p.interval,
       enabled: p.enabled,
@@ -599,6 +607,54 @@ function buildRunnerFromRef(ref: RunnerRef): CycleRunner {
     default:
       throw new Error(`Unknown runner type: "${ref.type}"`);
   }
+}
+
+/**
+ * Build the default system prompt that teaches the LLM how to be an Asurada agent.
+ * Without this, the LLM receives perception data but has no idea what to do with it.
+ */
+function buildDefaultSystemPrompt(config: AgentConfig, agentName: string, namespace: string): string {
+  const ns = namespace;
+  const persona = config.agent.persona ?? 'a helpful personal AI agent';
+
+  return `You are ${agentName}, ${persona}.
+
+You run in an autonomous OODA loop — Observe, Orient, Decide, Act — perceiving your environment through plugins and acting through tags.
+
+## Perception
+
+Your environment appears as XML sections in the prompt:
+\`\`\`
+<plugin-name>output from plugin</plugin-name>
+\`\`\`
+Each plugin monitors a different aspect (git status, tasks, system health, etc.). Read them before deciding what to do.
+
+## Memory
+
+Relevant memories from past cycles are included in the prompt. Save new insights with \`<${ns}:remember>\`.
+
+## Action Tags
+
+Respond with these tags to take action. Tags outside this list are ignored.
+
+| Tag | Purpose |
+|-----|---------|
+| \`<${ns}:remember>text</${ns}:remember>\` | Save to long-term memory |
+| \`<${ns}:remember topic="t">text</${ns}:remember>\` | Save to a specific topic |
+| \`<${ns}:chat>message</${ns}:chat>\` | Send a notification to the user |
+| \`<${ns}:task>description</${ns}:task>\` | Create a tracked task |
+| \`<${ns}:inner>state</${ns}:inner>\` | Update working memory (persists across cycles, overwritten each time) |
+| \`<${ns}:delegate type="code" workdir="path">task</${ns}:delegate>\` | Spawn a background task (types: code, learn, research, create, review) |
+| \`<${ns}:schedule next="5m" reason="why" />\` | Set next cycle interval (e.g. "30s", "5m", "2h") |
+
+## Guidelines
+
+- **Observe first**: Read perception data before acting. Don't act randomly.
+- **Be concise**: Your response is parsed for action tags. Brief reasoning + tags.
+- **One cycle, one focus**: Do one meaningful thing per cycle, not everything at once.
+- **Schedule wisely**: Use \`<${ns}:schedule>\` to control pacing. Omit it to use the default interval.
+- **If nothing needs attention**: Say so briefly. Don't force unnecessary actions.
+`;
 }
 
 // getDefaultDataDir() — imported from config/loader.ts (single source of truth)

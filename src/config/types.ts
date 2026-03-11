@@ -114,8 +114,10 @@ export interface AgentPerceptionConfig {
 export interface PluginEntry {
   /** Plugin name (unique identifier) */
   name: string;
-  /** Shell script path (relative to config file) */
-  script: string;
+  /** Shell script path (relative to config file). Required unless `command` is set. */
+  script?: string;
+  /** Inline shell command (alternative to script — runs via /bin/sh -c) */
+  command?: string;
   /** Category for interval grouping */
   category?: string;
   /** Override interval in ms (0 = event-driven) */

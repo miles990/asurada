@@ -1,13 +1,14 @@
 /**
- * Perception plugin executor — runs shell scripts and captures output.
+ * Perception plugin executor — runs shell scripts/commands and captures output.
  *
- * Any executable file can be a perception plugin:
- * - stdout = result, wrapped in <tag>...</tag> for context injection
- * - Supports any language (bash, python, go binary, etc.)
- * - Error isolation: one plugin's failure never affects others
+ * Two modes:
+ * - `command`: inline shell command (e.g. "date '+%H:%M'") — runs via /bin/sh
+ * - `script`: executable file path (e.g. "./plugins/git-status.sh") — runs via execFile
+ *
+ * Error isolation: one plugin's failure never affects others.
  */
 
-import { execFile } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { PerceptionPlugin, PerceptionResult } from './types.js';
@@ -16,7 +17,7 @@ const DEFAULT_TIMEOUT = 10_000;
 const MAX_BUFFER = 1024 * 1024; // 1MB
 
 /**
- * Execute a single perception plugin script.
+ * Execute a single perception plugin.
  * Returns result with output or error — never throws.
  */
 export async function executePlugin(
@@ -25,10 +26,47 @@ export async function executePlugin(
 ): Promise<PerceptionResult> {
   const timeout = plugin.timeout ?? DEFAULT_TIMEOUT;
   const startTime = Date.now();
+  const workDir = cwd ?? process.cwd();
 
+  // Inline command mode — run via shell
+  if (plugin.command) {
+    try {
+      const output = await new Promise<string>((resolve, reject) => {
+        exec(
+          plugin.command!,
+          {
+            encoding: 'utf-8',
+            timeout,
+            cwd: workDir,
+            maxBuffer: MAX_BUFFER,
+          },
+          (error, stdout) => {
+            if (error) reject(error);
+            else resolve(stdout);
+          },
+        );
+      });
+
+      return {
+        name: plugin.name,
+        output: output.trim() || null,
+        durationMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return {
+        name: plugin.name,
+        output: null,
+        error: msg.split('\n')[0].slice(0, 200),
+        durationMs: Date.now() - startTime,
+      };
+    }
+  }
+
+  // Script file mode — run via execFile
   const scriptPath = path.isAbsolute(plugin.script)
     ? plugin.script
-    : path.resolve(cwd ?? process.cwd(), plugin.script);
+    : path.resolve(workDir, plugin.script);
 
   if (!fs.existsSync(scriptPath)) {
     return {
@@ -47,7 +85,7 @@ export async function executePlugin(
         {
           encoding: 'utf-8',
           timeout,
-          cwd: cwd ?? process.cwd(),
+          cwd: workDir,
           maxBuffer: MAX_BUFFER,
         },
         (error, stdout) => {

@@ -201,7 +201,7 @@ export class AgentLoop {
       }
 
       // 7. Parse actions
-      const namespace = this.options.actionNamespace ?? this.agentName.toLowerCase() ?? 'agent';
+      const namespace = this.options.actionNamespace ?? 'agent';
       const actions = parseActions(response, namespace);
 
       // 7. Execute actions

@@ -36,8 +36,9 @@ console.log(`${agent.config.agent.name} is running on port ${agent.config.agent.
 Create `asurada.yaml`:
 
 ```yaml
-name: atlas
-persona: My first Asurada agent — curious and helpful
+agent:
+  name: atlas
+  persona: My first Asurada agent — curious and helpful
 
 loop:
   enabled: true
@@ -55,13 +56,14 @@ Your agent starts, waits 5 minutes, runs an OODA cycle (Observe → Orient → D
 
 ## Step 3: Give Your Agent Eyes
 
-An agent without perception is blind. Let's add some plugins — shell commands that tell the agent what's happening.
+An agent without perception is blind. Add plugins — shell commands that tell the agent what's happening.
 
 Update `asurada.yaml`:
 
 ```yaml
-name: atlas
-persona: My first Asurada agent — watches my dev environment
+agent:
+  name: atlas
+  persona: My first Asurada agent — watches my dev environment
 
 loop:
   enabled: true
@@ -69,23 +71,23 @@ loop:
 
 perception:
   plugins:
-    # What files have I changed?
+    # Inline commands — quick and easy
     - name: git-status
       command: "git status --porcelain 2>/dev/null | head -20"
       category: workspace
-      interval: 30s
 
-    # How much disk space is left?
     - name: disk-usage
       command: "df -h / | tail -1 | awk '{print $4, \"free of\", $2}'"
       category: system
-      interval: 5m
 
-    # What time is it? (agents should know)
     - name: clock
       command: "date '+%Y-%m-%d %H:%M %Z (%A)'"
       category: system
-      interval: 60s
+
+    # Or use script files for complex plugins
+    # - name: tasks
+    #   script: ./plugins/task-tracker.sh
+    #   category: workspace
 ```
 
 Now your agent's LLM context includes:
@@ -103,7 +105,7 @@ The agent sees its environment and decides what to do. **Each agent's world is d
 
 ## Step 4: Handle Actions
 
-When the LLM responds, it uses action tags. You decide what they do:
+When the LLM responds, it uses action tags. Asurada provides sensible defaults (store memory, send notifications, spawn background tasks), but you can override:
 
 ```typescript
 import { createAgent, ClaudeCliRunner, type ParsedAction, type CycleContext } from 'asurada';
@@ -111,22 +113,15 @@ import { createAgent, ClaudeCliRunner, type ParsedAction, type CycleContext } fr
 async function handleAction(action: ParsedAction, ctx: CycleContext): Promise<void> {
   switch (action.tag) {
     case 'remember':
-      console.log(`💾 Storing memory: ${action.content}`);
-      // Write to a file, database, or Obsidian vault
+      console.log(`Storing memory: ${action.content}`);
       break;
 
     case 'chat':
-      console.log(`💬 Agent says: ${action.content}`);
-      // Send to Telegram, Discord, Slack, etc.
+      console.log(`Agent says: ${action.content}`);
       break;
 
     case 'delegate':
-      console.log(`🔀 Background task: ${action.content}`);
-      // Spawn a subprocess to handle this
-      break;
-
-    case 'schedule':
-      console.log(`⏰ Next cycle in: ${action.attrs?.next}`);
+      console.log(`Background task: ${action.content}`);
       break;
 
     default:
@@ -137,20 +132,18 @@ async function handleAction(action: ParsedAction, ctx: CycleContext): Promise<vo
 const agent = await createAgent('./asurada.yaml', {
   loop: {
     runner: new ClaudeCliRunner({ model: 'sonnet' }),
-    systemPrompt: 'You are Atlas, a helpful dev assistant. Use action tags to interact.',
-    actionNamespace: 'agent',  // tags are <agent:remember>, <agent:chat>, etc.
-    onAction: handleAction,
+    onAction: handleAction,  // override default action handling
   },
 });
 
 await agent.start();
 ```
 
-The action namespace (`agent` by default) means the LLM writes `<agent:remember>...</agent:remember>`. You can change this to any prefix.
+The action namespace defaults to `agent`, so the LLM writes `<agent:remember>...</agent:remember>`. A default system prompt teaches the LLM which tags are available.
 
 ## Step 5: Add a Personality
 
-Create `memory/SOUL.md` in your agent's data directory:
+Create `memory/SOUL.md` in your project directory:
 
 ```markdown
 # Atlas
@@ -170,18 +163,7 @@ failing tests, and forgotten TODOs.
 - Never spam — if nothing changed, stay quiet
 ```
 
-Reference it in your config:
-
-```yaml
-name: atlas
-persona: Dev environment guardian
-
-memory:
-  dataDir: ./data
-  soulFile: ./data/SOUL.md
-```
-
-The SOUL.md content is injected into every LLM cycle. It shapes how your agent thinks and communicates.
+The default `buildPrompt` automatically loads `memory/SOUL.md` and injects it into every LLM cycle. It shapes how your agent thinks and communicates.
 
 ## Step 6: Use the HTTP API
 
@@ -197,7 +179,7 @@ curl http://localhost:3001/status
 # Send a message to the agent
 curl -X POST http://localhost:3001/api/message \
   -H "Content-Type: application/json" \
-  -d '{"text": "What files have I changed today?"}'
+  -d '{"from": "user", "text": "What files have I changed today?"}'
 
 # Server-Sent Events — watch cycles in real time
 curl http://localhost:3001/api/events
@@ -236,7 +218,7 @@ For parallel work, enable background lanes:
 ```yaml
 lanes:
   maxConcurrent: 4
-  taskTypes:
+  typeDefaults:
     code:     { maxTurns: 5, timeoutMs: 300000 }
     research: { maxTurns: 5, timeoutMs: 480000 }
     review:   { maxTurns: 3, timeoutMs: 180000 }
@@ -264,9 +246,12 @@ Background tasks run in parallel (up to `maxConcurrent`). Results come back to t
 ## Quick Reference
 
 ```bash
-# Start your agent
-npx tsx my-agent.ts
+# Use the setup wizard
+asurada init
 
-# Or use the setup wizard
-npx tsx src/wizard.ts
+# Start your agent
+asurada start
+
+# Or programmatically
+npx tsx my-agent.ts
 ```
