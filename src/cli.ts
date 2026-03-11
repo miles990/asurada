@@ -23,7 +23,7 @@ import { createProcessManager } from './process/factory.js';
 import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
 import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
 import { slog } from './logging/index.js';
-import { detectEnvironment, formatDetection, runWizard } from './setup/index.js';
+import { detectEnvironment, formatDetection, runWizard, scaffoldMemorySpace } from './setup/index.js';
 
 // === Parse Args ===
 
@@ -98,6 +98,7 @@ async function cmdInit(): Promise<void> {
   const port = option('port') ? parseInt(option('port')!, 10) : undefined;
 
   let name = option('name') ?? 'My Assistant';
+  let persona: string | undefined;
   let runner: string | undefined;
   let notifications: Array<{ type: string; options?: Record<string, unknown> }> = [];
 
@@ -115,10 +116,7 @@ async function cmdInit(): Promise<void> {
       ? wizard.notifications
       : [{ type: 'console' }];
 
-    // Apply persona via config
-    if (wizard.persona) {
-      // Will be set in writeConfig options
-    }
+    persona = wizard.persona;
   }
 
   // Create config with wizard results
@@ -133,14 +131,20 @@ async function cmdInit(): Promise<void> {
   // Create starter plugins so perception works out of the box
   scaffoldPlugins(dir);
 
-  // Init git repo for memory versioning
+  // Phase D: Memory space scaffold
   initGitRepo(dir);
+  const scaffold = await scaffoldMemorySpace(dir, { name, persona }, {
+    obsidian: env.obsidian.available,
+  });
+  if (scaffold.created.length > 0) {
+    console.log(`Memory space initialized (${scaffold.created.length} items)`);
+  }
 
   console.log();
   console.log('Next steps:');
   console.log('  1. asurada start');
-  if (env.obsidian.available) {
-    console.log('  2. Open Obsidian to browse agent memory as a vault');
+  if (scaffold.obsidianInit) {
+    console.log('  2. Open Obsidian → open vault at ./memory/ to browse agent memory');
   }
 }
 
