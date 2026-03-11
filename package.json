@@ -33,6 +33,15 @@
     "autonomous",
     "self-evolving"
   ],
+  "author": "Asurada Contributors",
+  "homepage": "https://github.com/miles990/asurada#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miles990/asurada.git"
+  },
+  "bugs": {
+    "url": "https://github.com/miles990/asurada/issues"
+  },
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
