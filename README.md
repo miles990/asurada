@@ -191,6 +191,14 @@ The output appears in the LLM's context as `<weather>Taipei: ☀️ +28°C</weat
 - `outputCap` limits output length (default: 4000 chars)
 - `distinctUntilChanged` automatically deduplicates — unchanged output doesn't trigger a new cycle
 
+For the full guide — real-world examples, advanced patterns (circuit breaker, auto-restart, event-driven), and design principles — see **[docs/plugin-guide.md](docs/plugin-guide.md)**.
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [Plugin Guide](docs/plugin-guide.md) | Writing perception plugins — examples, advanced patterns, design principles |
+
 ## Requirements
 
 - Node.js >= 20
