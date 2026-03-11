@@ -23,6 +23,8 @@ export interface AgentConfig {
   logging?: AgentLoggingConfig;
   /** Multi-lane parallel delegation */
   lanes?: LaneConfig;
+  /** Obsidian vault integration */
+  obsidian?: ObsidianConfig;
   /** Skill files to load */
   skills?: string[];
   /** Cron jobs */
@@ -117,6 +119,18 @@ export interface CronEntry {
   schedule: string;
   /** Task description */
   task: string;
+}
+
+/** Obsidian vault integration */
+export interface ObsidianConfig {
+  /** Enable vault sync (default: true) */
+  enabled?: boolean;
+  /** Subdirectory for index entry pages (default: "index-pages") */
+  pagesSubdir?: string;
+  /** Subdirectory for conversation summaries (default: "conversations") */
+  conversationsSubdir?: string;
+  /** Generate daily .md summaries from JSONL logs (default: true) */
+  generateDailySummaries?: boolean;
 }
 
 /** Resolved paths */

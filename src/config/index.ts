@@ -18,4 +18,5 @@ export type {
   AgentLoggingConfig,
   CronEntry,
   PathsConfig,
+  ObsidianConfig,
 } from './types.js';

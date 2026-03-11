@@ -129,6 +129,20 @@ export {
   type HealthResponse,
 } from './api/index.js';
 
+// Obsidian Integration
+export {
+  VaultSync,
+  initVault,
+  parseFrontmatter,
+  generateFrontmatter,
+  setFrontmatter,
+  mergeFrontmatter,
+  type SyncResult,
+  type Frontmatter,
+  type VaultSyncOptions,
+  type ObsidianConfig,
+} from './obsidian/index.js';
+
 // Process Management
 export {
   createProcessManager,

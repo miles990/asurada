@@ -28,6 +28,8 @@ import { LaneManager } from './lanes/manager.js';
 import type { TaskExecutor } from './lanes/types.js';
 import { AgentLoop } from './loop/agent-loop.js';
 import type { AgentLoopOptions } from './loop/types.js';
+import { VaultSync } from './obsidian/vault-sync.js';
+import { initVault } from './obsidian/vault-init.js';
 
 // === Agent Interface ===
 
@@ -46,6 +48,8 @@ export interface Agent {
   readonly search: MemorySearch;
   /** Relational cognitive graph (append-only JSONL) */
   readonly index: MemoryIndex;
+  /** Obsidian vault sync (null if obsidian integration disabled) */
+  readonly vault: VaultSync | null;
   /** Logger (JSONL file-based) */
   readonly logger: Logger;
   /** Multi-lane task manager */
@@ -179,7 +183,20 @@ function buildAgent(
   };
   const memory = new MemoryStore(memoryConfig);
   const search = new MemorySearch(memoryConfig);
-  const index = new MemoryIndex(path.join(memoryDir, 'index.jsonl'));
+  const indexPath = path.join(memoryDir, 'index.jsonl');
+  const index = new MemoryIndex(indexPath);
+
+  // --- 4b. Obsidian Vault ---
+  let vault: VaultSync | null = null;
+  if (config.obsidian?.enabled !== false) {
+    vault = new VaultSync({
+      vaultDir: memoryDir,
+      indexPath,
+      pagesSubdir: config.obsidian?.pagesSubdir,
+      conversationsSubdir: config.obsidian?.conversationsSubdir,
+      generateDailySummaries: config.obsidian?.generateDailySummaries,
+    });
+  }
 
   // --- 5. Perception ---
   const perception = new PerceptionManager();
@@ -248,6 +265,7 @@ function buildAgent(
     memory,
     search,
     index,
+    vault,
     logger,
     lanes,
     loop,
@@ -275,6 +293,17 @@ function buildAgent(
         slog('runtime', 'Memory search index initialized');
       } catch {
         slog('runtime', 'Memory search index skipped (better-sqlite3 not available)');
+      }
+
+      // Initialize Obsidian vault
+      if (vault) {
+        const created = await initVault(memoryDir);
+        if (created.length) slog('runtime', `Obsidian vault initialized: ${created.join(', ')}`);
+        // Initial sync
+        const syncResult = await vault.sync();
+        if (syncResult.pagesWritten || syncResult.topicsUpdated || syncResult.summariesGenerated) {
+          slog('runtime', `Vault sync: ${syncResult.pagesWritten} pages, ${syncResult.topicsUpdated} topics, ${syncResult.summariesGenerated} summaries`);
+        }
       }
 
       // Start OODA loop
