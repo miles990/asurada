@@ -183,6 +183,9 @@ function buildAgent(
   // Register config-driven providers
   for (const entry of config.notification?.providers ?? []) {
     switch (entry.type) {
+      case 'console':
+        // Already registered above as fallback — skip silently
+        break;
       case 'telegram': {
         const opts = entry.options as { botToken?: string; chatId?: string | number } | undefined;
         const botToken = opts?.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
