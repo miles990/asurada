@@ -37,11 +37,14 @@ export {
 
 export {
   EventBus,
+  CronScheduler,
   debounce,
   distinctUntilChanged,
   type AgentEvent,
   type EventPattern,
   type EventHandler,
+  type CronJobInfo,
+  type CronTickHandler,
 } from './core/index.js';
 
 export {

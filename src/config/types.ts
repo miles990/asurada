@@ -155,6 +155,8 @@ export interface CronEntry {
   schedule: string;
   /** Task description */
   task: string;
+  /** Explicitly disable without removing */
+  enabled?: boolean;
 }
 
 /** Obsidian vault integration */

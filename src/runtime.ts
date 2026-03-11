@@ -15,6 +15,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { loadConfig, loadConfigFromDir, getDefaultDataDir, type AgentConfig } from './config/index.js';
 import { EventBus } from './core/event-bus.js';
+import { CronScheduler } from './core/cron.js';
 import { NotificationManager } from './notification/manager.js';
 import { ConsoleProvider } from './notification/providers/console.js';
 import { TelegramProvider } from './notification/providers/telegram.js';
@@ -60,6 +61,8 @@ export interface Agent {
   readonly logger: Logger;
   /** Multi-lane task manager */
   readonly lanes: LaneManager;
+  /** Cron scheduler */
+  readonly cron: CronScheduler;
   /** OODA loop (null if no runner configured) */
   readonly loop: AgentLoop | null;
   /** Instance ID */
@@ -241,7 +244,10 @@ function buildAgent(
     config.lanes,
   );
 
-  // --- 7. OODA Loop ---
+  // --- 7. Cron Scheduler ---
+  const cronScheduler = new CronScheduler(events, (msg) => slog('cron', msg));
+
+  // --- 8. OODA Loop ---
   let loop: AgentLoop | null = null;
   if (options?.loop?.runner) {
     const loopInterval = parseInterval(config.loop?.interval) ?? 300_000;
@@ -301,14 +307,21 @@ function buildAgent(
     logger.log('routing', data);
   });
 
-  // Vault sync after every 10th cycle (daily summaries, index pages)
+  // Post-cycle housekeeping: vault sync + cron drain
   let vaultSyncCounter = 0;
   events.on('action:cycle', (event) => {
     const d = event.data as { event?: string };
-    if (d.event !== 'complete' || !vault) return;
-    vaultSyncCounter++;
-    if (vaultSyncCounter % 10 === 0) {
-      vault.sync().catch(() => {});
+    if (d.event !== 'complete') return;
+
+    // Drain one cron task per cycle (fire-and-forget)
+    cronScheduler.drain().catch(() => {});
+
+    // Vault sync every 10 cycles
+    if (vault) {
+      vaultSyncCounter++;
+      if (vaultSyncCounter % 10 === 0) {
+        vault.sync().catch(() => {});
+      }
     }
   });
 
@@ -340,6 +353,7 @@ function buildAgent(
     vault,
     logger,
     lanes,
+    cron: cronScheduler,
     loop,
     instanceId,
 
@@ -378,6 +392,12 @@ function buildAgent(
         }
       }
 
+      // Start cron scheduler
+      if (config.cron && config.cron.length > 0) {
+        cronScheduler.start(config.cron);
+        slog('runtime', `Cron started — ${cronScheduler.count} job(s)`);
+      }
+
       // Start OODA loop
       if (loop && config.loop?.enabled !== false) {
         loop.start();
@@ -397,6 +417,9 @@ function buildAgent(
       if (loop) {
         loop.stop();
       }
+
+      // Stop cron
+      cronScheduler.stop();
 
       // Stop perception
       perception.stop();
