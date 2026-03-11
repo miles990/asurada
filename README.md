@@ -10,13 +10,15 @@ Named after the AI navigation system in *Future GPX Cyber Formula* — autonomou
 
 ## Why Asurada?
 
-Most AI agent frameworks give you a tool. Asurada gives you a **growth partner**.
+As AI tools multiply, something gets lost: **the path from intention to result becomes invisible**. You're reviewing, directing, correcting — but the direct connection between what you want and what happens fades. The work gets done, but it doesn't feel like yours anymore.
 
-- **Perception-first**: OODA cycle (Observe → Orient → Decide → Act) as the heartbeat. Plugins define what your agent can see — each agent's world is different
-- **File = Truth**: All state in Markdown + JSONL. No database. `cat` to read, `git` to version, Obsidian to visualize
+Asurada takes a different approach. Instead of hiding complexity behind a chat interface, it makes the entire path **visible and yours**:
+
+- **Perception-first**: Your agent observes the environment before acting — OODA cycle as heartbeat, shell plugins as senses. Each agent's world is different because you define what it can see
+- **File = Truth**: All state lives in Markdown + JSONL. `cat` to read, `git` to version, Obsidian to visualize. No database, no opaque store — you can always see what your agent knows and why
+- **Co-evolution**: The agent adapts to your feedback and you learn its patterns. SOUL.md isn't a config file — it's a growth journal that deepens over time
 - **Multi-lane parallelism**: Main OODA cycle + foreground lane + 6 background tentacles. Like slime mold — explore multiple directions, strengthen what works, prune what doesn't
 - **Self-evolution**: Error pattern detection, perception citation tracking, decision quality scoring. Your agent gets smarter the more it runs
-- **Co-evolution**: The agent observes your behavior patterns, suggests improvements, and adapts to your feedback. You both grow
 
 ## Quick Start
 
