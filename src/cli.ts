@@ -258,7 +258,7 @@ async function cmdStart(): Promise<void> {
   await agent.start();
 
   // Start HTTP API server
-  const port = config.agent.port ?? 3001;
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : (config.agent.port ?? 3001);
   const apiKey = process.env.ASURADA_API_KEY;
   const server = await startServer(agent, { port, apiKey });
 
@@ -309,7 +309,7 @@ async function startDaemon(
     instanceId,
     entryScript: cliEntry,
     args: ['start'],
-    port: config.agent.port ?? 3001,
+    port: process.env.PORT ? parseInt(process.env.PORT, 10) : (config.agent.port ?? 3001),
     workDir: path.dirname(resolvedConfig),
     logsDir: path.join(dataDir, instanceId, 'logs'),
     env: {
@@ -373,7 +373,7 @@ async function cmdStatus(): Promise<void> {
   if (info?.running) {
     console.log(`Status: running (pid: ${info.pid})`);
     // Try HTTP health check
-    const port = config.agent.port ?? 3001;
+    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : (config.agent.port ?? 3001);
     try {
       const res = await fetch(`http://localhost:${port}/health`, {
         signal: AbortSignal.timeout(3000),
