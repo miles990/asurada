@@ -23,6 +23,7 @@ import { createProcessManager } from './process/factory.js';
 import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
 import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
 import { slog } from './logging/index.js';
+import { detectEnvironment, formatDetection } from './setup/index.js';
 
 // === Parse Args ===
 
@@ -77,9 +78,28 @@ function cmdInit(): void {
   const existing = findConfigFile(dir);
   if (existing) {
     console.error(`Config already exists: ${existing}`);
+    console.error(`Run \`asurada init --reconfigure\` to re-detect environment.`);
+    if (!flag('reconfigure')) process.exit(1);
+  }
+
+  // Phase A: Environment detection
+  console.log('\nDetecting environment...\n');
+  const env = detectEnvironment();
+  console.log(formatDetection(env));
+  console.log();
+
+  // Validate hard requirements
+  if (!env.git.available) {
+    console.error('Git is required for memory versioning. Install git and retry.');
     process.exit(1);
   }
 
+  if (!env.llm.anthropicApi && !env.llm.claudeCli.available) {
+    console.warn('Warning: No LLM runner detected.');
+    console.warn('  Set ANTHROPIC_API_KEY or install Claude CLI before starting.');
+  }
+
+  // Create config with detected defaults
   const name = option('name') ?? 'My Assistant';
   const port = option('port') ? parseInt(option('port')!, 10) : undefined;
 
@@ -89,10 +109,16 @@ function cmdInit(): void {
   // Create starter plugins so perception works out of the box
   scaffoldPlugins(dir);
 
+  // Init git repo for memory versioning
+  initGitRepo(dir);
+
   console.log();
   console.log('Next steps:');
-  console.log('  1. Edit asurada.yaml to customize your agent');
+  console.log(`  1. Edit asurada.yaml to name your agent and configure notifications`);
   console.log('  2. asurada start');
+  if (env.obsidian.available) {
+    console.log('  3. Open Obsidian to browse agent memory as a vault');
+  }
 }
 
 function scaffoldPlugins(dir: string): void {
@@ -149,6 +175,26 @@ fi
 
   if (created > 0) {
     console.log(`Created plugins/ (${created} starter plugins)`);
+  }
+}
+
+function initGitRepo(dir: string): void {
+  const memDir = path.join(dir, 'memory');
+  fs.mkdirSync(memDir, { recursive: true });
+
+  // Only init if not already in a git repo
+  try {
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
+      cwd: dir, timeout: 5000, stdio: 'pipe',
+    });
+  } catch {
+    try {
+      execFileSync('git', ['init'], { cwd: dir, timeout: 5000, stdio: 'pipe' });
+      console.log('Initialized git repo for memory versioning');
+    } catch {
+      // Git init failed — non-fatal, warn and continue
+      console.warn('Warning: could not initialize git repo');
+    }
   }
 }
 

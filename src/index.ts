@@ -161,3 +161,13 @@ export {
   type ProcessInfo,
   type ProcessBackend,
 } from './process/index.js';
+
+// Setup Wizard
+export {
+  detectEnvironment,
+  formatDetection,
+  type DetectionResult,
+  type OsInfo,
+  type ChromeInfo,
+  type LlmInfo,
+} from './setup/index.js';
