@@ -21,6 +21,7 @@ import { PerceptionManager } from './perception/manager.js';
 import type { PerceptionConfig, PerceptionPlugin } from './perception/types.js';
 import { MemoryStore } from './memory/store.js';
 import { MemorySearch } from './memory/search.js';
+import { MemoryIndex } from './memory/memory-index.js';
 import type { MemoryConfig } from './memory/types.js';
 import { Logger, slog, setSlogPrefix } from './logging/index.js';
 import { LaneManager } from './lanes/manager.js';
@@ -43,6 +44,8 @@ export interface Agent {
   readonly memory: MemoryStore;
   /** Memory search (FTS5) */
   readonly search: MemorySearch;
+  /** Relational cognitive graph (append-only JSONL) */
+  readonly index: MemoryIndex;
   /** Logger (JSONL file-based) */
   readonly logger: Logger;
   /** Multi-lane task manager */
@@ -176,6 +179,7 @@ function buildAgent(
   };
   const memory = new MemoryStore(memoryConfig);
   const search = new MemorySearch(memoryConfig);
+  const index = new MemoryIndex(path.join(memoryDir, 'index.jsonl'));
 
   // --- 5. Perception ---
   const perception = new PerceptionManager();
@@ -243,6 +247,7 @@ function buildAgent(
     perception,
     memory,
     search,
+    index,
     logger,
     lanes,
     loop,

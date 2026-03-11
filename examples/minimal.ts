@@ -43,7 +43,7 @@ I see ${Object.keys(JSON.parse('{}') || {}).length || 'no'} perception signals. 
 
 // === Action handler — what happens when the LLM emits tags ===
 
-async function handleAction(action: ParsedAction, context: CycleContext): Promise<void> {
+async function handleAction(action: ParsedAction, _context: CycleContext): Promise<void> {
   switch (action.tag) {
     case 'remember':
       console.log(`[memory] Storing: "${action.content}"`);
