@@ -17,6 +17,7 @@ import { loadConfig, loadConfigFromDir, type AgentConfig } from './config/index.
 import { EventBus } from './core/event-bus.js';
 import { NotificationManager } from './notification/manager.js';
 import { ConsoleProvider } from './notification/providers/console.js';
+import { TelegramProvider } from './notification/providers/telegram.js';
 import { PerceptionManager } from './perception/manager.js';
 import type { PerceptionConfig, PerceptionPlugin } from './perception/types.js';
 import { MemoryStore } from './memory/store.js';
@@ -167,7 +168,25 @@ function buildAgent(
   const notifications = new NotificationManager();
   // Always register console as fallback
   notifications.register(new ConsoleProvider());
-  // Register user-provided providers
+  // Register config-driven providers
+  for (const entry of config.notification?.providers ?? []) {
+    switch (entry.type) {
+      case 'telegram': {
+        const opts = entry.options as { botToken?: string; chatId?: string | number } | undefined;
+        const botToken = opts?.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = opts?.chatId ?? process.env.TELEGRAM_CHAT_ID;
+        if (botToken && chatId) {
+          notifications.register(new TelegramProvider({ botToken, chatId }));
+        } else {
+          slog('runtime', 'Telegram provider skipped — missing botToken or chatId');
+        }
+        break;
+      }
+      default:
+        slog('runtime', `Unknown notification provider: "${entry.type}" — register via options.notificationProviders`);
+    }
+  }
+  // Register user-provided providers (programmatic API)
   if (options?.notificationProviders) {
     for (const { provider } of options.notificationProviders) {
       notifications.register(provider);

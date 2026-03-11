@@ -45,6 +45,9 @@ export {
 
 export {
   NotificationManager,
+  ConsoleProvider,
+  TelegramProvider,
+  type TelegramProviderConfig,
   type NotificationProvider,
   type NotificationStats,
   type NotificationTier,
