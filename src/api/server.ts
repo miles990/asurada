@@ -135,7 +135,9 @@ export async function startServer(
       },
       perception: {
         plugins: agent.perception.getCachedResults().length,
-        lastRun: null,  // TODO: track in PerceptionManager
+        lastRun: agent.perception.getStats()
+          .reduce((latest: string | null, s) =>
+            s.updatedAt && (!latest || s.updatedAt > latest) ? s.updatedAt : latest, null),
       },
     };
     res.json(status);
