@@ -122,3 +122,14 @@ export {
   type AgentStatus,
   type HealthResponse,
 } from './api/index.js';
+
+// Process Management
+export {
+  createProcessManager,
+  LaunchdManager,
+  PidFileManager,
+  type ProcessManager,
+  type ProcessStartOptions,
+  type ProcessInfo,
+  type ProcessBackend,
+} from './process/index.js';
