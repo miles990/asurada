@@ -20,3 +20,14 @@ export {
   type NotificationTier,
   type SendOptions,
 } from './notification/index.js';
+
+export {
+  PerceptionManager,
+  executePlugin,
+  executeAllPlugins,
+  formatResults,
+  type PerceptionPlugin,
+  type PerceptionResult,
+  type PerceptionConfig,
+  type PerceptionStats,
+} from './perception/index.js';
