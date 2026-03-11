@@ -4,6 +4,16 @@
  * Grows with you, not just for you.
  */
 
+// Runtime — the main entry point
+export {
+  createAgent,
+  createAgentFromDir,
+  createAgentFromConfig,
+  type Agent,
+  type CreateAgentOptions,
+} from './runtime.js';
+
+// Config
 export {
   loadConfig,
   loadConfigFromDir,
