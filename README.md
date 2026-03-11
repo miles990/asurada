@@ -19,7 +19,8 @@ Most AI agent frameworks give you a tool. Asurada gives you a **growth partner**
 ## Quick Start
 
 ```bash
-npm install asurada
+git clone https://github.com/miles990/asurada.git
+cd asurada && npm install && npm run build
 ```
 
 ```typescript
@@ -151,7 +152,7 @@ Open Obsidian → see your agent's mind.
 First time? The wizard walks you through everything:
 
 ```bash
-npx asurada init
+asurada init
 ```
 
 It detects your environment (OS, Chrome, available LLMs), asks you to name your agent and choose a persona, connects your notification channel (Telegram, Discord, or console), and scaffolds a memory directory with a starter SOUL.md.
@@ -164,6 +165,7 @@ On first start, your agent introduces itself — showing what it can perceive an
 |---------|--------------|
 | [`minimal.ts`](examples/minimal.ts) | Mock runner, basic action parsing. No LLM needed |
 | [`with-perception.ts`](examples/with-perception.ts) | Real perception plugins (git, disk, uptime). Shows environment-driven behavior |
+| [`personality-configs.ts`](examples/personality-configs.ts) | Same framework, 3 different agents — dev assistant, research companion, security sentinel |
 
 ```bash
 npx tsx examples/minimal.ts          # Quick test
@@ -201,6 +203,7 @@ For the full guide — real-world examples, advanced patterns (circuit breaker, 
 | [Configuration](docs/configuration.md) | Complete YAML config reference — every field, defaults, and common setups |
 | [Plugin Guide](docs/plugin-guide.md) | Writing perception plugins — examples, advanced patterns, design principles |
 | [API Reference](docs/api-reference.md) | HTTP endpoints — health, status, context, messages, SSE events |
+| [Design Philosophy](docs/design-philosophy.md) | Why interfaces shape cognition — the 3-question framework behind every Asurada design decision |
 
 ## Requirements
 
