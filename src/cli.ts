@@ -14,11 +14,14 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { findConfigFile, loadConfig, writeConfig } from './config/index.js';
-import { createAgent } from './runtime.js';
+import { findConfigFile, loadConfig, writeConfig, type AgentConfig } from './config/index.js';
+import { createAgent, type CreateAgentOptions } from './runtime.js';
 import { startServer } from './api/server.js';
 import { createProcessManager } from './process/factory.js';
+import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
+import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
 import { slog } from './logging/index.js';
 
 // === Parse Args ===
@@ -102,7 +105,9 @@ async function cmdStart(): Promise<void> {
   // Foreground mode — run directly
   console.log(`Starting ${config.agent.name}...`);
 
-  const agent = await createAgent(configPath);
+  // Auto-detect CycleRunner for OODA loop
+  const agentOptions = autoDetectRunner(config);
+  const agent = await createAgent(configPath, agentOptions);
   await agent.start();
 
   // Start HTTP API server
@@ -316,6 +321,57 @@ https://github.com/miles990/asurada
 function cmdVersion(): void {
   const pkg = readPkg();
   console.log(pkg.version ?? '0.0.0');
+}
+
+// === Runner Auto-Detection ===
+
+function autoDetectRunner(config: AgentConfig): CreateAgentOptions | undefined {
+  if (config.loop?.enabled === false) return undefined;
+
+  const model = config.loop?.model ?? 'sonnet';
+  const runnerHint = config.loop?.runner;
+
+  // Explicit runner in config
+  if (runnerHint === 'anthropic-api') {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.error('Error: loop.runner is "anthropic-api" but ANTHROPIC_API_KEY is not set');
+      process.exit(1);
+    }
+    console.log(`Runner: Anthropic API (model: ${model})`);
+    return { loop: { runner: new AnthropicApiRunner({ apiKey, model }) } };
+  }
+
+  if (runnerHint === 'claude-cli') {
+    console.log(`Runner: Claude CLI (model: ${model})`);
+    return { loop: { runner: new ClaudeCliRunner({ model }) } };
+  }
+
+  // Auto-detect: API key first (more reliable), then CLI
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (apiKey) {
+    console.log(`Runner: Anthropic API [auto-detected] (model: ${model})`);
+    return { loop: { runner: new AnthropicApiRunner({ apiKey, model }) } };
+  }
+
+  if (hasClaude()) {
+    console.log(`Runner: Claude CLI [auto-detected] (model: ${model})`);
+    return { loop: { runner: new ClaudeCliRunner({ model }) } };
+  }
+
+  // No runner available
+  console.warn('Warning: No LLM runner available. OODA loop disabled.');
+  console.warn('  Set ANTHROPIC_API_KEY or install Claude Code CLI.');
+  return undefined;
+}
+
+function hasClaude(): boolean {
+  try {
+    execFileSync('claude', ['--version'], { timeout: 5000, stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // === Helpers ===

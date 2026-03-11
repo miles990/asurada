@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG: Omit<AgentConfig, 'agent'> = {
   loop: {
     enabled: true,
     interval: '5m',
+    model: 'sonnet',
   },
   notification: {
     providers: [{ type: 'console' }],

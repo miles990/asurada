@@ -49,6 +49,10 @@ export interface LoopConfig {
   enabled?: boolean;
   /** Default cycle interval (e.g. "5m", "30s") */
   interval?: string;
+  /** LLM model to use (e.g. "sonnet", "opus", "claude-sonnet-4-6") */
+  model?: string;
+  /** Runner type hint for CLI auto-detection: "claude-cli" | "anthropic-api" */
+  runner?: string;
 }
 
 /** Notification configuration */
