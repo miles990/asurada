@@ -100,3 +100,15 @@ export {
   type LaneEvents,
   type VerifyResult,
 } from './lanes/index.js';
+
+export {
+  AgentLoop,
+  parseActions,
+  parseDuration,
+  type AgentLoopOptions,
+  type CycleRunner,
+  type CycleContext,
+  type CycleTrigger,
+  type CycleResult,
+  type ParsedAction,
+} from './loop/index.js';

@@ -25,6 +25,8 @@ import type { MemoryConfig } from './memory/types.js';
 import { Logger, slog, setSlogPrefix } from './logging/index.js';
 import { LaneManager } from './lanes/manager.js';
 import type { TaskExecutor } from './lanes/types.js';
+import { AgentLoop } from './loop/agent-loop.js';
+import type { AgentLoopOptions } from './loop/types.js';
 
 // === Agent Interface ===
 
@@ -45,10 +47,12 @@ export interface Agent {
   readonly logger: Logger;
   /** Multi-lane task manager */
   readonly lanes: LaneManager;
+  /** OODA loop (null if no runner configured) */
+  readonly loop: AgentLoop | null;
   /** Instance ID */
   readonly instanceId: string;
 
-  /** Start the agent (perception streams, lanes, etc.) */
+  /** Start the agent (perception streams, lanes, loop) */
   start(): Promise<void>;
   /** Stop the agent gracefully */
   stop(): Promise<void>;
@@ -63,6 +67,8 @@ export interface CreateAgentOptions {
   instanceId?: string;
   /** Additional notification providers to register */
   notificationProviders?: Array<{ type: string; provider: import('./notification/types.js').NotificationProvider }>;
+  /** OODA loop configuration. Omit to disable the loop. */
+  loop?: Omit<AgentLoopOptions, 'defaultInterval' | 'minInterval' | 'maxInterval'>;
 }
 
 // === Factory ===
@@ -190,6 +196,18 @@ function buildAgent(
     config.lanes,
   );
 
+  // --- 7. OODA Loop ---
+  let loop: AgentLoop | null = null;
+  if (options?.loop?.runner) {
+    const loopInterval = parseInterval(config.loop?.interval) ?? 300_000;
+    loop = new AgentLoop(events, perception, agentName, {
+      ...options.loop,
+      defaultInterval: loopInterval,
+      minInterval: 30_000,
+      maxInterval: 14_400_000,
+    });
+  }
+
   // --- Wire up event-driven integrations ---
   // Lane events → EventBus
   lanes.on('task:completed', (result) => {
@@ -227,6 +245,7 @@ function buildAgent(
     search,
     logger,
     lanes,
+    loop,
     instanceId,
 
     get running() {
@@ -253,6 +272,12 @@ function buildAgent(
         slog('runtime', 'Memory search index skipped (better-sqlite3 not available)');
       }
 
+      // Start OODA loop
+      if (loop && config.loop?.enabled !== false) {
+        loop.start();
+        slog('runtime', 'OODA loop started');
+      }
+
       events.emit('action:lifecycle', { event: 'started', agent: agentName });
       slog('runtime', `Agent "${agentName}" is running`);
     },
@@ -261,6 +286,11 @@ function buildAgent(
       if (!isRunning) return;
 
       slog('runtime', `Stopping agent "${agentName}"...`);
+
+      // Stop OODA loop
+      if (loop) {
+        loop.stop();
+      }
 
       // Stop perception
       perception.stop();
@@ -285,6 +315,20 @@ function slugify(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     || 'agent';
+}
+
+/** Parse a config interval string like "5m", "30s", "2h" to ms */
+function parseInterval(str?: string): number | null {
+  if (!str) return null;
+  const match = str.match(/^(\d+(?:\.\d+)?)\s*(s|m|h)$/);
+  if (!match) return null;
+  const value = parseFloat(match[1]);
+  switch (match[2]) {
+    case 's': return Math.round(value * 1_000);
+    case 'm': return Math.round(value * 60_000);
+    case 'h': return Math.round(value * 3_600_000);
+    default: return null;
+  }
 }
 
 function getDefaultDataDir(): string {
