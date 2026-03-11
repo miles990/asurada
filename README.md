@@ -1,5 +1,7 @@
 # Asurada
 
+[![CI](https://github.com/miles990/asurada/actions/workflows/ci.yml/badge.svg)](https://github.com/miles990/asurada/actions/workflows/ci.yml)
+
 > The AI agent framework that grows with you — not just for you.
 
 Asurada is a **perception-driven personal AI agent framework**. Instead of executing goals blindly, your agent observes the environment first, then decides what to do — like a co-pilot that learns your patterns, nudges you when you're stuck, and evolves alongside you.
@@ -55,27 +57,27 @@ await agent.start();
 ### Config (`asurada.yaml`)
 
 ```yaml
-name: my-agent
-identity:
-  role: personal assistant
-  traits: [curious, helpful]
+agent:
+  name: my-agent
+  persona: A curious and helpful personal assistant
 
 perception:
   plugins:
     - name: system-monitor
-      command: "echo '{\"cpu\": \"$(top -l 1 | head -4)\"}'"
-      interval: 60s
+      command: "echo \"Load: $(uptime | sed 's/.*load averages: //')\""
       category: system
 
 memory:
-  dataDir: ./data
+  dir: ./data
 
 notification:
-  provider: console  # or telegram, discord, slack
+  providers:
+    - type: console  # or telegram, discord, slack
 
 loop:
+  enabled: true
   model: sonnet
-  intervalMs: 300000  # 5 minutes between cycles
+  interval: 5m
 ```
 
 ## Architecture
@@ -174,21 +176,27 @@ npx tsx examples/with-perception.ts  # See perception in action
 
 ## Writing Perception Plugins
 
-A plugin is just a shell command that outputs text:
+A plugin is a shell command or script that outputs text:
 
 ```yaml
 perception:
   plugins:
+    # Inline command — quick and simple
     - name: weather
-      script: "curl -s 'wttr.in/?format=3'"
+      command: "curl -s 'wttr.in/?format=3'"
       category: environment
-      interval: 300000  # 5 minutes
+
+    # Script file — for complex logic
+    - name: tasks
+      script: ./plugins/task-tracker.sh
+      category: workspace
 ```
 
-The output appears in the LLM's context as `<weather>Taipei: ☀️ +28°C</weather>`. Your agent sees the world through its plugins — each agent's Umwelt is different.
+The output appears in the LLM's context as `<weather>Taipei: +28C</weather>`. Your agent sees the world through its plugins — each agent's Umwelt is different.
 
 **Tips:**
-- Scripts should be fast (<10s) and produce concise output
+- Use `command:` for inline shell commands, `script:` for file-based plugins
+- Plugins should be fast (<10s) and produce concise output
 - Use `category` to group related plugins and set shared intervals
 - `outputCap` limits output length (default: 4000 chars)
 - `distinctUntilChanged` automatically deduplicates — unchanged output doesn't trigger a new cycle
