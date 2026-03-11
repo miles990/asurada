@@ -40,3 +40,19 @@ export {
   type MemoryConfig,
   type MemoryStoreProvider,
 } from './memory/index.js';
+
+export {
+  Logger,
+  slog,
+  setSlogPrefix,
+  diagLog,
+  safeExec,
+  safeExecAsync,
+  readJsonFile,
+  type LogCategory,
+  type LogEntry,
+  type LogMetadata,
+  type LogQueryOptions,
+  type LogStats,
+  type LoggerConfig,
+} from './logging/index.js';
