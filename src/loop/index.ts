@@ -25,3 +25,5 @@ export type {
   ModelRouterOptions,
   RouteLogEvent,
 } from './model-router.js';
+export { RouteTelemetry } from './route-telemetry.js';
+export type { TelemetryEntry, TelemetrySummary } from './route-telemetry.js';
