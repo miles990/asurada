@@ -5,6 +5,26 @@
  */
 
 export {
+  loadConfig,
+  loadConfigFromDir,
+  findConfigFile,
+  generateConfig,
+  writeConfig,
+  DEFAULT_CONFIG,
+  STARTER_CONFIG,
+  type AgentConfig,
+  type AgentIdentity,
+  type LoopConfig,
+  type NotificationConfig,
+  type AgentPerceptionConfig,
+  type PluginEntry,
+  type AgentMemoryConfig,
+  type AgentLoggingConfig,
+  type CronEntry,
+  type PathsConfig,
+} from './config/index.js';
+
+export {
   EventBus,
   debounce,
   distinctUntilChanged,
