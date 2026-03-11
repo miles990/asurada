@@ -23,7 +23,7 @@ import { createProcessManager } from './process/factory.js';
 import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
 import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
 import { slog } from './logging/index.js';
-import { detectEnvironment, formatDetection, runWizard, scaffoldMemorySpace } from './setup/index.js';
+import { detectEnvironment, formatDetection, runWizard, scaffoldMemorySpace, isFirstRun, markFirstRunDone, gatherFirstRunInfo, formatFirstRunGreeting } from './setup/index.js';
 
 // === Parse Args ===
 
@@ -237,7 +237,16 @@ async function cmdStart(): Promise<void> {
   }
 
   // Foreground mode — run directly
-  console.log(`Starting ${config.agent.name}...`);
+  const agentName = config.agent.name;
+  const dataDir = getDataDir(config);
+  const instanceDataDir = path.join(dataDir, slugify(agentName));
+  const firstTime = isFirstRun(instanceDataDir);
+
+  if (firstTime) {
+    console.log(`\n  Starting ${agentName} for the first time...\n`);
+  } else {
+    console.log(`Starting ${agentName}...`);
+  }
 
   // Auto-detect CycleRunner for OODA loop
   const agentOptions = autoDetectRunner(config);
@@ -249,7 +258,15 @@ async function cmdStart(): Promise<void> {
   const apiKey = process.env.ASURADA_API_KEY;
   const server = await startServer(agent, { port, apiKey });
 
-  console.log(`Agent "${config.agent.name}" running on port ${server.port}`);
+  if (firstTime) {
+    // Phase E: First-run greeting — agent introduces itself
+    const pluginCount = config.perception?.plugins?.filter(p => p.enabled !== false).length ?? 0;
+    const info = gatherFirstRunInfo({ name: agentName, port: server.port, pluginCount });
+    console.log(formatFirstRunGreeting(info));
+    markFirstRunDone(instanceDataDir);
+  } else {
+    console.log(`Agent "${agentName}" running on port ${server.port}`);
+  }
   console.log('Press Ctrl+C to stop');
 
   // Graceful shutdown
