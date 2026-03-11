@@ -19,6 +19,8 @@ export interface ProcessStartOptions {
   workDir?: string;
   /** Directory for log files */
   logsDir?: string;
+  /** Additional arguments to pass after the entry script */
+  args?: string[];
   /** Additional environment variables */
   env?: Record<string, string>;
   /** Auto-restart on crash (default: true for launchd/systemd, false for pidfile) */

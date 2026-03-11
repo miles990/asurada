@@ -184,7 +184,9 @@ export class LaunchdManager implements ProcessManager {
     <key>ProgramArguments</key>
     <array>
         <string>${escapeXml(nodePath)}</string>
-        <string>${escapeXml(opts.entryScript)}</string>
+        <string>${escapeXml(opts.entryScript)}</string>${
+      (opts.args ?? []).map(a => `\n        <string>${escapeXml(a)}</string>`).join('')
+    }
     </array>
     <key>WorkingDirectory</key>
     <string>${escapeXml(workDir)}</string>

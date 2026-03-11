@@ -44,7 +44,7 @@ export class PidFileManager implements ProcessManager {
       ...opts.env,
     };
 
-    const child = spawn(process.execPath, [opts.entryScript], {
+    const child = spawn(process.execPath, [opts.entryScript, ...(opts.args ?? [])], {
       cwd: opts.workDir ?? process.cwd(),
       detached: true,
       stdio: ['ignore', out, err],

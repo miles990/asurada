@@ -14,8 +14,10 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { findConfigFile, loadConfig, writeConfig } from './config/index.js';
 import { createAgent } from './runtime.js';
+import { startServer } from './api/server.js';
 import { createProcessManager } from './process/factory.js';
 import { slog } from './logging/index.js';
 
@@ -103,13 +105,18 @@ async function cmdStart(): Promise<void> {
   const agent = await createAgent(configPath);
   await agent.start();
 
+  // Start HTTP API server
   const port = config.agent.port ?? 3001;
-  console.log(`Agent "${config.agent.name}" running on port ${port}`);
+  const apiKey = process.env.ASURADA_API_KEY;
+  const server = await startServer(agent, { port, apiKey });
+
+  console.log(`Agent "${config.agent.name}" running on port ${server.port}`);
   console.log('Press Ctrl+C to stop');
 
   // Graceful shutdown
   const shutdown = async () => {
     console.log('\nStopping...');
+    await server.close();
     await agent.stop();
     process.exit(0);
   };
@@ -133,12 +140,21 @@ async function startDaemon(
 
   console.log(`Starting ${config.agent.name} (${pm.backend})...`);
 
+  // The daemon runs this CLI in foreground mode (no -d flag)
+  // via ASURADA_CONFIG env var to locate the config file
+  const cliEntry = fileURLToPath(import.meta.url);
+  const resolvedConfig = path.resolve(configPath);
+
   const info = await pm.start({
     instanceId,
-    entryScript: path.resolve(configPath),
+    entryScript: cliEntry,
+    args: ['start'],
     port: config.agent.port ?? 3001,
-    workDir: path.dirname(path.resolve(configPath)),
+    workDir: path.dirname(resolvedConfig),
     logsDir: path.join(dataDir, instanceId, 'logs'),
+    env: {
+      ASURADA_CONFIG: resolvedConfig,
+    },
   });
 
   if (info.running) {
@@ -305,6 +321,10 @@ function cmdVersion(): void {
 // === Helpers ===
 
 function resolveConfig(): string {
+  // Check env var first (used by daemon mode)
+  const fromEnv = process.env.ASURADA_CONFIG;
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+
   const specific = option('config') ?? option('c');
   const configFile = findConfigFile(undefined, specific);
   if (!configFile) {
