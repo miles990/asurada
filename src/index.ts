@@ -65,10 +65,16 @@ export {
 export {
   MemoryStore,
   MemorySearch,
+  MemoryIndex,
   type MemoryEntry,
   type SearchResult,
   type MemoryConfig,
   type MemoryStoreProvider,
+  type CognitiveType,
+  type IndexEntry,
+  type IndexQuery,
+  type GraphEdge,
+  type ResolvedIndex,
 } from './memory/index.js';
 
 export {
