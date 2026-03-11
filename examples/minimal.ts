@@ -12,10 +12,22 @@
 
 import {
   createAgentFromConfig,
+  ClaudeCliRunner,
+  AnthropicApiRunner,
   type CycleRunner,
   type ParsedAction,
   type CycleContext,
 } from '../src/index.js';
+
+// === Built-in runners (choose one) ===
+//
+// Claude Code CLI (zero-config, uses Claude Code auth):
+//   const runner = new ClaudeCliRunner({ model: 'sonnet' });
+//
+// Anthropic API (direct API calls, needs key):
+//   const runner = new AnthropicApiRunner({ apiKey: process.env.ANTHROPIC_API_KEY! });
+//
+// For this example, we use a mock runner that needs no LLM:
 
 // === Mock LLM — responds with agent tags ===
 
