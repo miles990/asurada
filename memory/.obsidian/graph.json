@@ -1,0 +1,65 @@
+{
+  "collapse_filter": false,
+  "search": "",
+  "showTags": true,
+  "showAttachments": false,
+  "showOrphans": false,
+  "collapse_color_groups": false,
+  "colorGroups": [
+    {
+      "query": "tag:#remember",
+      "color": {
+        "a": 1,
+        "r": 100,
+        "g": 200,
+        "b": 100
+      }
+    },
+    {
+      "query": "tag:#learning",
+      "color": {
+        "a": 1,
+        "r": 100,
+        "g": 150,
+        "b": 255
+      }
+    },
+    {
+      "query": "tag:#commitment",
+      "color": {
+        "a": 1,
+        "r": 255,
+        "g": 150,
+        "b": 100
+      }
+    },
+    {
+      "query": "tag:#thread",
+      "color": {
+        "a": 1,
+        "r": 200,
+        "g": 100,
+        "b": 200
+      }
+    },
+    {
+      "query": "tag:#conversation",
+      "color": {
+        "a": 1,
+        "r": 150,
+        "g": 150,
+        "b": 150
+      }
+    }
+  ],
+  "collapse_display": false,
+  "showArrow": true,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 1,
+  "collapse_forces": true,
+  "centerStrength": 0.5,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250
+}

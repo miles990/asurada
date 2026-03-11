@@ -1,0 +1,18 @@
+/* Asurada Agent — Obsidian styling */
+
+/* Frontmatter type badges */
+.frontmatter-container .frontmatter-section:has([data-key="type"]) .frontmatter-value {
+  font-weight: bold;
+  color: var(--text-accent);
+}
+
+/* Tag styling in body */
+.tag[href*="remember"] { color: #64c864; }
+.tag[href*="learning"] { color: #6496ff; }
+.tag[href*="commitment"] { color: #ff9664; }
+.tag[href*="thread"] { color: #c864c8; }
+
+/* Conversation messages */
+.markdown-preview-view strong:first-child {
+  color: var(--text-accent);
+}

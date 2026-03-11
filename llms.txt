@@ -1,0 +1,53 @@
+# Asurada
+
+> Perception-driven personal AI agent framework. File-based, zero-database, composable.
+
+Asurada is a TypeScript framework for building autonomous AI agents that react to their environment rather than follow fixed plans. Agents perceive through shell-script plugins, think via pluggable LLM runners, and act through structured tags — all configured in a single YAML file.
+
+## Core Concepts
+
+- **Perception-First**: Shell scripts define what the agent can see. Different environments produce different behaviors.
+- **File = Truth**: Markdown + JSONL storage. Human-readable, git-friendly, no database.
+- **Memory Index**: Append-only cognitive graph with 8 types (remember, commitment, learning, thread, goal, task, observation, opinion) and cross-references via `refs[]`.
+- **OODA Loop**: Perceive → Orient → Decide → Act → repeat. Timer and event-driven.
+- **Multi-Lane**: Up to 6 concurrent background tasks (code, learn, research, create, review, shell).
+- **Model Routing**: Three-tier SKIP/REFLECT/ESCALATE with shadow mode for safe rollout.
+- **Obsidian Integration**: Auto-generates wikilinked index pages, topic files, and daily conversation summaries.
+
+## Quick Start
+
+```typescript
+import { createAgent, ClaudeCliRunner } from 'asurada';
+
+const agent = await createAgent('./asurada.yaml', {
+  loop: {
+    runner: new ClaudeCliRunner({ model: 'sonnet' }),
+    onAction: async (action) => console.log(action.tag, action.content),
+  },
+});
+
+await agent.start();
+```
+
+## Configuration
+
+Single YAML file (`asurada.yaml`) defines: agent identity, loop settings, perception plugins, memory, logging, lanes, notifications, Obsidian integration, and model routing.
+
+## LLM Runners
+
+- `ClaudeCliRunner` — Uses Claude Code CLI (zero-config)
+- `AnthropicApiRunner` — Direct Anthropic Messages API
+- `OpenAiCompatibleRunner` — Ollama, vLLM, oMLX, or any OpenAI-compatible server
+
+## Architecture
+
+```
+Perception (See) + Memory (Know) + LLM (Think) + Actions (Do)
+```
+
+Modules: EventBus, PerceptionManager, MemoryStore, MemorySearch, MemoryIndex, AgentLoop, ModelRouter, LaneManager, NotificationManager, VaultSync, Logger.
+
+## Links
+
+- Source: https://github.com/miles990/asurada
+- License: MIT
