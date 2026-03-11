@@ -85,10 +85,71 @@ function cmdInit(): void {
 
   const filePath = writeConfig(dir, { name, port });
   console.log(`Created ${path.relative(dir, filePath)}`);
+
+  // Create starter plugins so perception works out of the box
+  scaffoldPlugins(dir);
+
   console.log();
   console.log('Next steps:');
   console.log('  1. Edit asurada.yaml to customize your agent');
   console.log('  2. asurada start');
+}
+
+function scaffoldPlugins(dir: string): void {
+  const pluginsDir = path.join(dir, 'plugins');
+  fs.mkdirSync(pluginsDir, { recursive: true });
+
+  const plugins: Record<string, string> = {
+    'task-tracker.sh': `#!/bin/bash
+# Task tracker — reads TODO/NEXT files and shows pending tasks.
+# Customize this to match your task management style.
+
+if [ -f "./NEXT.md" ]; then
+  echo "## Tasks"
+  grep -E "^- \\[[ x]\\]" ./NEXT.md 2>/dev/null | head -10
+elif [ -f "./TODO.md" ]; then
+  echo "## Tasks"
+  grep -E "^- \\[[ x]\\]" ./TODO.md 2>/dev/null | head -10
+else
+  echo "No task file found (create NEXT.md or TODO.md)"
+fi
+`,
+    'git-status.sh': `#!/bin/bash
+# Git status — shows repo state for workspace awareness.
+
+if ! git rev-parse --is-inside-work-tree &>/dev/null; then
+  echo "Not a git repository"
+  exit 0
+fi
+
+BRANCH=$(git branch --show-current 2>/dev/null)
+CHANGES=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+UNPUSHED=$(git log --oneline @{u}..HEAD 2>/dev/null | wc -l | tr -d ' ')
+
+echo "Branch: $BRANCH"
+echo "Changes: $CHANGES files"
+echo "Unpushed: $UNPUSHED commits"
+
+if [ "$CHANGES" -gt 0 ]; then
+  echo ""
+  echo "Modified:"
+  git status --porcelain 2>/dev/null | head -10
+fi
+`,
+  };
+
+  let created = 0;
+  for (const [name, content] of Object.entries(plugins)) {
+    const filePath = path.join(pluginsDir, name);
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, content, { mode: 0o755 });
+      created++;
+    }
+  }
+
+  if (created > 0) {
+    console.log(`Created plugins/ (${created} starter plugins)`);
+  }
 }
 
 // --- start ---
