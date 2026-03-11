@@ -5,6 +5,7 @@ export {
   loadConfigFromDir,
   generateConfig,
   writeConfig,
+  getDefaultDataDir,
 } from './loader.js';
 export type {
   AgentConfig,

@@ -20,6 +20,7 @@ export {
   findConfigFile,
   generateConfig,
   writeConfig,
+  getDefaultDataDir,
   DEFAULT_CONFIG,
   STARTER_CONFIG,
   type AgentConfig,

@@ -142,6 +142,27 @@ export function writeConfig(dir: string, options?: Parameters<typeof generateCon
 }
 
 // =============================================================================
+// Paths
+// =============================================================================
+
+/**
+ * Default data directory following platform conventions.
+ * - macOS: ~/Library/Application Support/asurada
+ * - Linux: $XDG_DATA_HOME/asurada or ~/.local/share/asurada
+ * - Windows: %USERPROFILE%/.local/share/asurada (fallback)
+ */
+export function getDefaultDataDir(): string {
+  const xdg = process.env.XDG_DATA_HOME;
+  if (xdg) return path.join(xdg, 'asurada');
+
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? '.';
+  if (process.platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'asurada');
+  }
+  return path.join(home, '.local', 'share', 'asurada');
+}
+
+// =============================================================================
 // Internal
 // =============================================================================
 

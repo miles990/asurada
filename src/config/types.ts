@@ -139,7 +139,7 @@ export interface ObsidianConfig {
 
 /** Resolved paths */
 export interface PathsConfig {
-  /** Base data directory (default: XDG or ~/.config/asurada) */
+  /** Base data directory (default: XDG or ~/Library/Application Support/asurada on macOS) */
   data?: string;
   /** Memory directory */
   memory?: string;

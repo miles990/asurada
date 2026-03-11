@@ -13,7 +13,7 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import { loadConfig, loadConfigFromDir, type AgentConfig } from './config/index.js';
+import { loadConfig, loadConfigFromDir, getDefaultDataDir, type AgentConfig } from './config/index.js';
 import { EventBus } from './core/event-bus.js';
 import { NotificationManager } from './notification/manager.js';
 import { ConsoleProvider } from './notification/providers/console.js';
@@ -384,14 +384,4 @@ function parseInterval(str?: string): number | null {
   }
 }
 
-function getDefaultDataDir(): string {
-  // XDG-compliant: $XDG_DATA_HOME/asurada or ~/.local/share/asurada
-  const xdg = process.env.XDG_DATA_HOME;
-  if (xdg) return path.join(xdg, 'asurada');
-
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? '.';
-  if (process.platform === 'darwin') {
-    return path.join(home, 'Library', 'Application Support', 'asurada');
-  }
-  return path.join(home, '.local', 'share', 'asurada');
-}
+// getDefaultDataDir() — imported from config/loader.ts (single source of truth)

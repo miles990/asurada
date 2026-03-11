@@ -16,7 +16,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { findConfigFile, loadConfig, writeConfig, type AgentConfig } from './config/index.js';
+import { findConfigFile, loadConfig, writeConfig, getDefaultDataDir, type AgentConfig } from './config/index.js';
 import { createAgent, type CreateAgentOptions } from './runtime.js';
 import { startServer } from './api/server.js';
 import { createProcessManager } from './process/factory.js';
@@ -453,15 +453,7 @@ function resolveConfig(): string {
 
 function getDataDir(config: import('./config/types.js').AgentConfig): string {
   if (config.paths?.data) return path.resolve(config.paths.data);
-
-  const xdg = process.env.XDG_DATA_HOME;
-  if (xdg) return path.join(xdg, 'asurada');
-
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? '.';
-  if (process.platform === 'darwin') {
-    return path.join(home, 'Library', 'Application Support', 'asurada');
-  }
-  return path.join(home, '.local', 'share', 'asurada');
+  return getDefaultDataDir();
 }
 
 function slugify(name: string): string {
