@@ -31,3 +31,12 @@ export {
   type PerceptionConfig,
   type PerceptionStats,
 } from './perception/index.js';
+
+export {
+  MemoryStore,
+  MemorySearch,
+  type MemoryEntry,
+  type SearchResult,
+  type MemoryConfig,
+  type MemoryStoreProvider,
+} from './memory/index.js';
