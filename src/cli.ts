@@ -133,6 +133,7 @@ async function cmdInit(): Promise<void> {
   const filePath = writeConfig(dir, {
     name,
     persona,
+    language,
     port,
     runner,
     notifications,

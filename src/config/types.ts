@@ -50,6 +50,8 @@ export interface AgentIdentity {
   name: string;
   /** One-line persona description */
   persona?: string;
+  /** Language for prompts and templates (e.g. "en", "zh-TW", "ja") */
+  language?: string;
   /** HTTP API port */
   port?: number;
   /** API key for HTTP server auth */
