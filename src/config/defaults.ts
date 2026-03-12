@@ -53,7 +53,7 @@ export const DEFAULT_CONFIG: Omit<AgentConfig, 'agent'> = {
 export const STARTER_CONFIG: AgentConfig = {
   agent: {
     name: 'My Assistant',
-    persona: 'A helpful personal AI assistant that monitors your workspace.',
+    persona: 'A personal AI assistant — curious, helpful, and growing.',
     port: 3001,
   },
   ...DEFAULT_CONFIG,
