@@ -100,7 +100,7 @@ export function formatFirstRunGreeting(info: FirstRunInfo): string {
   lines.push(`    ${ok} ${info.memory}, ${info.disk} ${t.freeDisk}`);
   lines.push(`    ${info.networkOk ? ok : no} ${t.network} ${info.networkOk ? t.connected : t.unreachable}`);
   if (info.pluginCount > 0) {
-    lines.push(`    ${ok} ${info.pluginCount} ${t.plugins(info.pluginCount)}`);
+    lines.push(`    ${ok} ${t.plugins(info.pluginCount)}`);
   }
   lines.push('');
 
