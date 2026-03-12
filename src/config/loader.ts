@@ -85,6 +85,8 @@ export function loadConfig(filePath: string): AgentConfig {
     skills: parsed.skills ?? DEFAULT_CONFIG.skills ?? [],
     cron: parsed.cron ?? DEFAULT_CONFIG.cron ?? [],
     paths: parsed.paths,
+    agents: parsed.agents,
+    activeAgent: parsed.activeAgent,
   };
 
   // Resolve relative paths against config file directory

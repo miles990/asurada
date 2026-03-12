@@ -9,6 +9,15 @@ agent:
   name: My Assistant
   persona: A helpful personal AI assistant that monitors your workspace.
   port: 3001
+
+# Multi-agent mode — each agent gets its own memory namespace (memory/{name}/)
+# Uncomment to enable:
+# agents:
+#   kuro:
+#     persona: "Curious, opinionated AI assistant"
+#   helper:
+#     persona: "A general-purpose helper"
+# activeAgent: kuro    # Which agent to load (or use: asurada start --agent kuro)
 loop:
   enabled: true
   interval: 5m

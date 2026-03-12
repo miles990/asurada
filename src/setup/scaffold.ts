@@ -25,15 +25,18 @@ export interface ScaffoldResult {
  *
  * @param dir - Project root directory
  * @param wizard - Results from the setup wizard (name, persona)
- * @param opts - Optional overrides
+ * @param opts - Optional overrides (agentSlug for multi-agent namespacing)
  */
 export async function scaffoldMemorySpace(
   dir: string,
   wizard: Pick<WizardResult, 'name' | 'persona' | 'traits'>,
-  opts?: { obsidian?: boolean },
+  opts?: { obsidian?: boolean; agentSlug?: string },
 ): Promise<ScaffoldResult> {
   const created: string[] = [];
-  const memoryDir = path.join(dir, 'memory');
+  // When agentSlug is provided, namespace memory under memory/{agentSlug}/
+  const memoryDir = opts?.agentSlug
+    ? path.join(dir, 'memory', opts.agentSlug)
+    : path.join(dir, 'memory');
 
   // --- Directory structure ---
   const dirs = [

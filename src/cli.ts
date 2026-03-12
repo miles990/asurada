@@ -143,8 +143,10 @@ async function cmdInit(): Promise<void> {
 
   // Phase D: Memory space scaffold
   initGitRepo(dir);
+  const agentSlug = slugify(name);
   const scaffold = await scaffoldMemorySpace(dir, { name, persona, traits }, {
     obsidian: env.obsidian.available,
+    agentSlug,
   });
   if (scaffold.created.length > 0) {
     console.log(`Memory space initialized (${scaffold.created.length} items)`);
@@ -275,6 +277,20 @@ async function cmdStart(): Promise<void> {
 
   if (daemon) {
     return startDaemon(configPath, config);
+  }
+
+  // Apply --agent override for multi-agent mode
+  const agentOverride = option('agent');
+  if (agentOverride) {
+    if (config.agents && !(agentOverride in config.agents)) {
+      console.error(`Unknown agent "${agentOverride}". Available: ${Object.keys(config.agents).join(', ')}`);
+      process.exit(1);
+    }
+    config.activeAgent = agentOverride;
+    // Also update runtime name if this agent has a persona in agents config
+    if (config.agents?.[agentOverride]?.persona) {
+      config.agent.persona = config.agents[agentOverride].persona;
+    }
   }
 
   // Foreground mode — run directly
@@ -503,6 +519,9 @@ Commands:
 Init options:
   --name <name>       Agent name (default: "My Assistant")
   --port <port>       HTTP port (default: 3001)
+
+Start options:
+  --agent <name>      Load a specific agent (multi-agent mode)
 
 https://github.com/miles990/asurada
 `.trim());

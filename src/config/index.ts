@@ -20,4 +20,6 @@ export type {
   CronEntry,
   PathsConfig,
   ObsidianConfig,
+  AgentProfile,
+  AgentsConfig,
 } from './types.js';

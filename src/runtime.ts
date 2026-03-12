@@ -71,6 +71,8 @@ export interface Agent {
   readonly loop: AgentLoop | null;
   /** Instance ID */
   readonly instanceId: string;
+  /** Active agent name (for memory namespacing) */
+  readonly activeAgent: string;
 
   /** Start the agent (perception streams, lanes, loop) */
   start(): Promise<void>;
@@ -145,15 +147,21 @@ function buildAgent(
   const instanceId = options?.instanceId ?? slugify(config.agent.name);
   const agentName = config.agent.name;
 
+  // --- Resolve active agent (for memory namespacing) ---
+  const activeAgent = config.activeAgent ?? slugify(agentName);
+
   // --- Resolve paths ---
   const dataDir = config.paths?.data
     ? path.resolve(baseDir, config.paths.data)
     : path.join(getDefaultDataDir(), instanceId);
+  // When agents are configured, namespace memory under memory/{activeAgent}/
   const memoryDir = config.paths?.memory
     ? path.resolve(baseDir, config.paths.memory)
     : config.memory?.dir
       ? path.resolve(baseDir, config.memory.dir)
-      : path.join(baseDir, 'memory');
+      : config.agents
+        ? path.join(baseDir, 'memory', activeAgent)
+        : path.join(baseDir, 'memory');
   const logsDir = config.paths?.logs
     ? path.resolve(baseDir, config.paths.logs)
     : config.logging?.dir
@@ -163,6 +171,9 @@ function buildAgent(
   // Ensure directories exist
   for (const dir of [dataDir, memoryDir, logsDir]) {
     fs.mkdirSync(dir, { recursive: true });
+  }
+  if (config.agents) {
+    slog('runtime', `Multi-agent mode: active="${activeAgent}", memory=${memoryDir}`);
   }
 
   // --- 1. EventBus ---
@@ -473,6 +484,7 @@ function buildAgent(
     cron: cronScheduler,
     loop,
     instanceId,
+    activeAgent,
 
     get running() {
       return isRunning;

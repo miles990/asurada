@@ -31,6 +31,17 @@ export interface AgentConfig {
   cron?: CronEntry[];
   /** Paths (resolved relative to config file) */
   paths?: PathsConfig;
+  /**
+   * Multi-agent profiles — each agent gets its own memory namespace (memory/{name}/).
+   * When defined, memory is stored under memory/{activeAgent}/ instead of memory/.
+   */
+  agents?: AgentsConfig;
+  /**
+   * Which agent to load at startup. Must be a key in `agents`.
+   * If omitted, defaults to slugified agent.name.
+   * Can be overridden via CLI: `asurada start --agent <name>`
+   */
+  activeAgent?: string;
 }
 
 /** Agent identity — the minimum to get started */
@@ -181,4 +192,18 @@ export interface PathsConfig {
   memory?: string;
   /** Logs directory */
   logs?: string;
+}
+
+/** Agent profile for multi-agent memory namespacing */
+export interface AgentProfile {
+  /** One-line persona description */
+  persona?: string;
+  /** Custom traits (comma-separated) */
+  traits?: string;
+}
+
+/** Multi-agent configuration — each agent gets its own memory namespace */
+export interface AgentsConfig {
+  /** Map of agent slug → profile */
+  [name: string]: AgentProfile;
 }
