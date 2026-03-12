@@ -185,7 +185,7 @@ const GREETING_STRINGS: Record<string, GreetingStrings> = {
   },
   'zh-TW': {
     hello: (name) => `\u4f60\u597d\uff01\u6211\u662f ${name}\u3002`,
-    firstWakeUp: '\u9019\u662f\u6211\u7b2c\u4e00\u6b21\u919c\u4f86\u3002',
+    firstWakeUp: '\u9019\u662f\u6211\u7b2c\u4e00\u6b21\u9192\u4f86\u3002',
     whatISee: '\u6211\u770b\u5230\u7684\u74b0\u5883\uff1a',
     freeDisk: '\u53ef\u7528\u78c1\u789f',
     network: '\u7db2\u8def',
