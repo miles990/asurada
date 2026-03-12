@@ -677,9 +677,11 @@ function getDataDir(config: import('./config/types.js').AgentConfig): string {
 
 function slugify(name: string): string {
   return name
+    .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^\p{L}\p{N}-]/gu, '')
+    .replace(/^-+|-+$/g, '')
     || 'agent';
 }
 
