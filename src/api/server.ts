@@ -314,6 +314,15 @@ export async function startServer(
     }
   });
 
+  app.get('/chat', (_req, res) => {
+    const chatPath = path.join(uiDir, 'chat.html');
+    if (fs.existsSync(chatPath)) {
+      res.sendFile(chatPath);
+    } else {
+      res.status(404).send('Chat not found');
+    }
+  });
+
   // --- Start server ---
   return new Promise<AgentServer>((resolve, reject) => {
     const server = app.listen(port, () => {

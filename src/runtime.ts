@@ -154,14 +154,12 @@ function buildAgent(
   const dataDir = config.paths?.data
     ? path.resolve(baseDir, config.paths.data)
     : path.join(getDefaultDataDir(), instanceId);
-  // When agents are configured, namespace memory under memory/{activeAgent}/
+  // Always namespace memory under memory/{activeAgent}/
   const memoryDir = config.paths?.memory
     ? path.resolve(baseDir, config.paths.memory)
     : config.memory?.dir
       ? path.resolve(baseDir, config.memory.dir)
-      : config.agents
-        ? path.join(baseDir, 'memory', activeAgent)
-        : path.join(baseDir, 'memory');
+      : path.join(baseDir, 'memory', activeAgent);
   const logsDir = config.paths?.logs
     ? path.resolve(baseDir, config.paths.logs)
     : config.logging?.dir
@@ -172,9 +170,7 @@ function buildAgent(
   for (const dir of [dataDir, memoryDir, logsDir]) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  if (config.agents) {
-    slog('runtime', `Multi-agent mode: active="${activeAgent}", memory=${memoryDir}`);
-  }
+  slog('runtime', `Agent "${activeAgent}", memory=${memoryDir}`);
 
   // --- 1. EventBus ---
   const events = new EventBus();
