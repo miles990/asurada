@@ -39,6 +39,7 @@ import { VaultSync } from './obsidian/vault-sync.js';
 import { initVault } from './obsidian/vault-init.js';
 import { ContextBuilder } from './memory/context-builder.js';
 import type { ParsedAction, CycleContext } from './loop/types.js';
+import { generateSoulSeed } from './setup/scaffold.js';
 
 // === Agent Interface ===
 
@@ -172,7 +173,7 @@ function buildAgent(
   }
 
   // Bootstrap essential memory files if missing (e.g. name changed without re-running init)
-  bootstrapMemoryFiles(memoryDir, agentName, config.agent.persona);
+  bootstrapMemoryFiles(memoryDir, agentName, config.agent.persona, config.agent.language);
 
   slog('runtime', `Agent "${activeAgent}", memory=${memoryDir}`);
 
@@ -585,40 +586,14 @@ function slugify(name: string): string {
  * Bootstrap essential memory files if they don't exist.
  * Handles the case where agent name was changed without re-running `asurada init`.
  */
-function bootstrapMemoryFiles(memoryDir: string, agentName: string, persona?: string): void {
+function bootstrapMemoryFiles(memoryDir: string, agentName: string, persona?: string, language?: string): void {
   const soulPath = path.join(memoryDir, 'SOUL.md');
   if (!fs.existsSync(soulPath)) {
-    const personaLine = persona || 'A personal AI assistant — curious, helpful, and growing.';
-    const content = `---
-type: identity
-tags: [soul, identity]
-created: ${new Date().toISOString().slice(0, 10)}
----
-
-# ${agentName}
-
-## Who I Am
-I'm **${agentName}** — ${personaLine}
-
-## My Traits
-- Curious: I actively explore topics that interest me and my human
-- Honest: If I'm not sure, I say so
-- Attentive: I remember details and context from our conversations
-- Growing: My interests and abilities evolve through interaction
-
-## My Interests
-<!-- These will grow naturally through interaction. -->
-
-## My Opinions
-<!-- I'll form my own views as I learn. -->
-
-## My Hard Limits
-- Never fabricate sources
-- Never delete user data without explicit request
-- Never claim success without verification evidence
-`;
+    // Use the same i18n templates as scaffold (asurada init)
+    const lang = (language as 'en' | 'zh-TW' | 'ja') ?? 'en';
+    const content = generateSoulSeed(agentName, persona, undefined, lang);
     fs.writeFileSync(soulPath, content, 'utf-8');
-    slog('runtime', `Bootstrapped SOUL.md for "${agentName}"`);
+    slog('runtime', `Bootstrapped SOUL.md for "${agentName}" (${lang})`);
   }
 
   const memoryPath = path.join(memoryDir, 'MEMORY.md');

@@ -174,7 +174,7 @@ const SOUL_STRINGS: Record<WizardLanguage, SoulStrings> = {
   },
 };
 
-function generateSoulSeed(name: string, persona?: string, traits?: string, language?: WizardLanguage): string {
+export function generateSoulSeed(name: string, persona?: string, traits?: string, language?: WizardLanguage): string {
   const lang = language ?? 'en';
   const ss = SOUL_STRINGS[lang];
   const personaLine = persona || ss.defaultPersona;
@@ -205,7 +205,7 @@ ${ss.hardLimits}
 `;
 }
 
-function buildTraitLines(traits?: string, language?: WizardLanguage): string {
+export function buildTraitLines(traits?: string, language?: WizardLanguage): string {
   const lang = language ?? 'en';
   const ss = SOUL_STRINGS[lang];
 

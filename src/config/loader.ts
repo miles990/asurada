@@ -115,6 +115,7 @@ export function loadConfigFromDir(dir?: string): AgentConfig | null {
 export function generateConfig(options?: {
   name?: string;
   persona?: string;
+  language?: string;
   port?: number;
   runner?: string;
   notifications?: Array<{ type: string; options?: Record<string, unknown> }>;
@@ -123,6 +124,7 @@ export function generateConfig(options?: {
   const config = structuredClone(STARTER_CONFIG);
   if (options?.name) config.agent.name = options.name;
   if (options?.persona) config.agent.persona = options.persona;
+  if (options?.language) config.agent.language = options.language;
   if (options?.port) config.agent.port = options.port;
 
   // Apply wizard-selected runner
