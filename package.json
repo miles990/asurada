@@ -21,6 +21,7 @@
   },
   "scripts": {
     "build": "tsc && mkdir -p dist/ui && cp src/ui/* dist/ui/",
+    "prepublishOnly": "npm run build",
     "typecheck": "tsc --noEmit",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
