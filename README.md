@@ -25,6 +25,15 @@ Asurada takes a different approach. Instead of hiding complexity behind a chat i
 ```bash
 git clone https://github.com/miles990/asurada.git
 cd asurada && npm install && npm run build
+npm link   # creates the 'asurada' command globally
+```
+
+Now you can use the CLI:
+
+```bash
+asurada init     # interactive setup wizard
+asurada start    # start your agent
+asurada status   # check agent status
 ```
 
 ### Configuration
