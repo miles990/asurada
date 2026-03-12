@@ -273,11 +273,6 @@ function initGitRepo(dir: string): void {
 async function cmdStart(): Promise<void> {
   const configPath = resolveConfig();
   const config = loadConfig(configPath);
-  const daemon = flag('daemon') || flag('d') || command === 'up';
-
-  if (daemon) {
-    return startDaemon(configPath, config);
-  }
 
   // Apply CLI overrides (CLI flags > config file > defaults)
   const portOverride = option('port');
@@ -301,6 +296,12 @@ async function cmdStart(): Promise<void> {
     if (config.agents?.[agentOverride]?.persona) {
       config.agent.persona = config.agents[agentOverride].persona;
     }
+  }
+
+  const daemon = flag('daemon') || flag('d') || command === 'up';
+
+  if (daemon) {
+    return startDaemon(configPath, config);
   }
 
   // Foreground mode — run directly
@@ -365,14 +366,19 @@ async function startDaemon(
   console.log(`Starting ${config.agent.name} (${pm.backend})...`);
 
   // The daemon runs this CLI in foreground mode (no -d flag)
-  // via ASURADA_CONFIG env var to locate the config file
+  // Forward CLI overrides so the subprocess applies them too
   const cliEntry = fileURLToPath(import.meta.url);
   const resolvedConfig = path.resolve(configPath);
+  const daemonArgs = ['start', '--config', resolvedConfig];
+  const portFlag = option('port');
+  if (portFlag) daemonArgs.push('--port', portFlag);
+  const agentFlag = option('agent');
+  if (agentFlag) daemonArgs.push('--agent', agentFlag);
 
   const info = await pm.start({
     instanceId,
     entryScript: cliEntry,
-    args: ['start', '--config', resolvedConfig],
+    args: daemonArgs,
     port: config.agent.port ?? 3001,
     workDir: path.dirname(resolvedConfig),
     logsDir: path.join(dataDir, instanceId, 'logs'),
