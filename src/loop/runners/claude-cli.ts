@@ -39,7 +39,6 @@ export class ClaudeCliRunner implements CycleRunner {
   async run(prompt: string, systemPrompt: string): Promise<string> {
     const args = [
       '-p', this.buildInput(prompt, systemPrompt),
-      '--no-input',
       '--max-turns', String(this.maxTurns),
       '--model', this.model,
       '--output-format', 'text',
