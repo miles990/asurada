@@ -213,3 +213,32 @@ export interface AgentsConfig {
   /** Map of agent slug → profile */
   [name: string]: AgentProfile;
 }
+
+/**
+ * LLM Profile — provider-agnostic model configuration.
+ *
+ * Stored as JSON files in `llm/profiles/{name}.json`.
+ * Each profile defines parameters for a specific use case (fast, thinking, creative, etc.).
+ */
+export interface LLMProfile {
+  /** Model identifier (e.g. "Qwen3.5-9B-MLX-4bit") */
+  model: string;
+  /** Max tokens to generate */
+  max_tokens: number;
+  /** Sampling temperature (0.0-2.0) */
+  temperature: number;
+  /** Top-p nucleus sampling */
+  top_p: number;
+  /** Top-k sampling */
+  top_k: number;
+  /** Presence penalty */
+  presence_penalty: number;
+  /** Repetition penalty (0 = disabled) */
+  repetition_penalty?: number;
+  /** Enable thinking/reasoning mode (model-dependent) */
+  enable_thinking: boolean;
+  /** Enable tool use */
+  tools_enabled: boolean;
+  /** Request timeout in ms */
+  timeout_ms: number;
+}

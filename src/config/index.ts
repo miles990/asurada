@@ -22,4 +22,6 @@ export type {
   ObsidianConfig,
   AgentProfile,
   AgentsConfig,
+  LLMProfile,
 } from './types.js';
+export { loadProfile, clearProfileCache, PROFILE_DEFAULTS } from './profile-loader.js';

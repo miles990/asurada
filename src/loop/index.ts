@@ -9,9 +9,12 @@ export { parseActions, parseDuration } from './action-parser.js';
 export {
   ClaudeCliRunner,
   AnthropicApiRunner,
+  ProfileRoutedRunner,
   type ClaudeCliOptions,
   type AnthropicApiOptions,
+  type ProfileRoutedOptions,
 } from './runners/index.js';
+export { autoRoute, DEFAULT_ROUTE_MAP, type AutoRouteOptions, type AutoRouteResult, type TaskCategory } from './auto-route.js';
 export type {
   AgentLoopOptions,
   CycleRunner,
