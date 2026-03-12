@@ -9,6 +9,10 @@
  *   GET  /api/events    — SSE real-time event stream
  *   POST /api/message   — send a message to the agent
  *   GET  /api/messages  — recent messages
+ *   GET  /api/tasks     — list active tasks
+ *   POST /api/tasks     — create a task
+ *   PATCH /api/tasks/:id — update a task
+ *   DELETE /api/tasks/:id — soft delete a task
  */
 
 import express from 'express';
@@ -18,6 +22,8 @@ import path from 'node:path';
 import type { Agent } from '../runtime.js';
 import type { ServerOptions, Message, AgentStatus, HealthResponse } from './types.js';
 import { slog } from '../logging/index.js';
+import { TaskStore } from './task-store.js';
+import type { CreateTaskInput, UpdateTaskInput } from './task-store.js';
 
 const VERSION = '0.1.0';
 
@@ -52,7 +58,7 @@ export async function startServer(
   const corsOrigin = options?.corsOrigin ?? '*';
   app.use((_req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', corsOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (_req.method === 'OPTIONS') {
       res.status(204).end();
@@ -79,12 +85,14 @@ export async function startServer(
   }
 
   // --- Messages storage (file-based) ---
-  const messagesFile = path.join(
-    agent.config.paths?.data
-      ? path.resolve(agent.config.paths.data)
-      : path.join(process.cwd(), '.asurada'),
-    'messages.jsonl',
-  );
+  const dataDir = agent.config.paths?.data
+    ? path.resolve(agent.config.paths.data)
+    : path.join(process.cwd(), '.asurada');
+
+  const messagesFile = path.join(dataDir, 'messages.jsonl');
+
+  // --- Task store (JSONL event-sourced) ---
+  const taskStore = new TaskStore(path.join(dataDir, 'tasks.jsonl'));
 
   function appendMessage(msg: Message): void {
     const dir = path.dirname(messagesFile);
@@ -295,6 +303,113 @@ export async function startServer(
     res.json({ plugins, total: plugins.length });
   });
 
+  // --- Task Board Routes ---
+
+  // List all active tasks (not deleted)
+  app.get('/api/tasks', async (_req, res) => {
+    try {
+      const tasks = await taskStore.getTasks();
+      res.json({ tasks });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to list tasks' });
+    }
+  });
+
+  // Create a new task
+  app.post('/api/tasks', async (req, res) => {
+    const { title, assignee, labels, verify, messageRef, by } = req.body as {
+      title?: string;
+      assignee?: string;
+      labels?: string[];
+      verify?: string;
+      messageRef?: string;
+      by?: string;
+    };
+
+    if (!title) {
+      res.status(400).json({ error: 'Missing required field: title' });
+      return;
+    }
+
+    const creator = by ?? 'unknown';
+    const input: CreateTaskInput = {
+      title,
+      ...(assignee !== undefined && { assignee }),
+      ...(labels !== undefined && { labels }),
+      ...(verify !== undefined && { verify }),
+      ...(messageRef !== undefined && { messageRef }),
+    };
+
+    try {
+      const task = await taskStore.createTask(input, creator);
+      agent.events.emit('task:created', { task });
+      slog('api', `Task ${task.id} created by ${creator}: ${task.title.slice(0, 60)}`);
+      res.status(201).json({ task });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to create task' });
+    }
+  });
+
+  // Update a task (status, assignee, labels, title)
+  app.patch('/api/tasks/:id', async (req, res) => {
+    const { id } = req.params;
+    const { status, assignee, labels, title, by } = req.body as {
+      status?: string;
+      assignee?: string;
+      labels?: string[];
+      title?: string;
+      by?: string;
+    };
+
+    const validStatuses = ['todo', 'doing', 'done', 'abandoned'];
+    if (status !== undefined && !validStatuses.includes(status)) {
+      res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+      return;
+    }
+
+    const updater = by ?? 'unknown';
+    const input: UpdateTaskInput = {
+      ...(status !== undefined && { status: status as UpdateTaskInput['status'] }),
+      ...(assignee !== undefined && { assignee }),
+      ...(labels !== undefined && { labels }),
+      ...(title !== undefined && { title }),
+    };
+
+    try {
+      const task = await taskStore.updateTask(id, input, updater);
+      if (!task) {
+        res.status(404).json({ error: `Task ${id} not found` });
+        return;
+      }
+      agent.events.emit('task:updated', { task });
+      slog('api', `Task ${id} updated by ${updater}`);
+      res.json({ task });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to update task' });
+    }
+  });
+
+  // Soft delete a task
+  app.delete('/api/tasks/:id', async (req, res) => {
+    const { id } = req.params;
+    const { by } = req.body as { by?: string };
+    const deleter = by ?? 'unknown';
+
+    try {
+      const existing = await taskStore.getTask(id);
+      if (!existing) {
+        res.status(404).json({ error: `Task ${id} not found` });
+        return;
+      }
+      await taskStore.deleteTask(id, deleter);
+      agent.events.emit('task:deleted', { taskId: id });
+      slog('api', `Task ${id} deleted by ${deleter}`);
+      res.status(204).end();
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to delete task' });
+    }
+  });
+
   // Serve dashboard UI
   const uiDir = path.join(
     path.dirname(new URL(import.meta.url).pathname),
@@ -320,6 +435,15 @@ export async function startServer(
       res.sendFile(chatPath);
     } else {
       res.status(404).send('Chat not found');
+    }
+  });
+
+  app.get('/board', (_req, res) => {
+    const boardPath = path.join(uiDir, 'board.html');
+    if (fs.existsSync(boardPath)) {
+      res.sendFile(boardPath);
+    } else {
+      res.status(404).send('Board not found');
     }
   });
 
