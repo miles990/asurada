@@ -96,7 +96,11 @@ interface WizardStrings {
   phaseIdentity: string;
   askName: string;
   askPersona: string;
+  personaMatters: string;
+  personaDefault: string;
   askTraits: string;
+  traitsDefault: string;
+  phasePerception: string;
   phaseConnection: string;
   brainIntro: string;
   whichLlm: string;
@@ -133,8 +137,12 @@ const STRINGS: Record<WizardLanguage, WizardStrings> = {
   en: {
     phaseIdentity: '\n--- Phase C: Identity ---\n',
     askName: 'What should your agent be called? [My Assistant]: ',
-    askPersona: 'One-line persona: ',
-    askTraits: 'Traits (comma-separated, optional): ',
+    askPersona: 'Describe your agent in one line — this becomes its voice: ',
+    personaMatters: '  Persona shapes how your agent communicates. Try again: ',
+    personaDefault: 'A thoughtful assistant that learns and grows',
+    askTraits: 'Three words that define your agent (e.g. curious, honest, creative): ',
+    traitsDefault: 'Curious, Honest, Attentive',
+    phasePerception: '\n--- Eyes — What should your agent be aware of? ---\nChoosing what to perceive shapes who your agent becomes.\n',
     phaseConnection: '\n--- Phase B: Connection ---\n',
     brainIntro: 'Brain — your agent needs an LLM to think.\n',
     whichLlm: 'Which LLM?',
@@ -169,9 +177,13 @@ const STRINGS: Record<WizardLanguage, WizardStrings> = {
   'zh-TW': {
     phaseIdentity: '\n--- \u968e\u6bb5 C\uff1a\u8eab\u4efd\u8a2d\u5b9a ---\n',
     askName: '\u4f60\u7684 Agent \u53eb\u4ec0\u9ebc\u540d\u5b57\uff1f [\u6211\u7684\u52a9\u624b]: ',
-    askPersona: '\u4e00\u53e5\u8a71\u63cf\u8ff0\u4eba\u8a2d\uff1a',
-    askTraits: '\u7279\u8cea\uff08\u9017\u865f\u5206\u9694\uff0c\u53ef\u7559\u7a7a\uff09\uff1a',
-    phaseConnection: '\n--- \u968e\u6bb5 B\uff1a\u9023\u63a5\u8a2d\u5b9a ---\n',
+    askPersona: '用一句話描述你的 Agent — 這會成為它的聲音：',
+    personaMatters: '  人設塑造了 Agent 的溝通方式。再試一次：',
+    personaDefault: '一個善於思考、持續學習成長的助手',
+    askTraits: '用三個詞定義你的 Agent（例如：好奇、誠實、有創意）：',
+    traitsDefault: '好奇, 誠實, 細心',
+    phasePerception: '\n--- 感知 — 你的 Agent 應該意識到什麼？ ---\n選擇感知什麼，塑造了你的 Agent 會成為什麼。\n',
+    phaseConnection: '\n--- 階段 B：連接設定 ---\n',
     brainIntro: '\u5927\u8166 \u2014 \u4f60\u7684 Agent \u9700\u8981\u4e00\u500b LLM \u4f86\u601d\u8003\u3002\n',
     whichLlm: '\u9078\u64c7 LLM\uff1f',
     validatingApiKey: '  \u9a57\u8b49 API key \u4e2d... ',
@@ -205,9 +217,13 @@ const STRINGS: Record<WizardLanguage, WizardStrings> = {
   ja: {
     phaseIdentity: '\n--- \u30d5\u30a7\u30fc\u30ba C: \u30a2\u30a4\u30c7\u30f3\u30c6\u30a3\u30c6\u30a3 ---\n',
     askName: 'Agent \u306e\u540d\u524d\u306f\uff1f [\u30a2\u30b7\u30b9\u30bf\u30f3\u30c8]: ',
-    askPersona: '\u4e00\u884c\u306e\u30da\u30eb\u30bd\u30ca\u8aac\u660e\uff1a',
-    askTraits: '\u7279\u6027\uff08\u30ab\u30f3\u30de\u533a\u5207\u308a\u3001\u7701\u7565\u53ef\uff09\uff1a',
-    phaseConnection: '\n--- \u30d5\u30a7\u30fc\u30ba B: \u63a5\u7d9a\u8a2d\u5b9a ---\n',
+    askPersona: 'Agentを一行で表現してください — これがAgentの声になります：',
+    personaMatters: '  ペルソナはAgentのコミュニケーションスタイルを形作ります。もう一度：',
+    personaDefault: '思慮深く、学び続けて成長するアシスタント',
+    askTraits: 'Agentを定義する3つの言葉（例: 好奇心旺盛, 正直, 創造的）：',
+    traitsDefault: '好奇心旺盛, 正直, 注意深い',
+    phasePerception: '\n--- 知覚 — Agentは何を認識すべきですか？ ---\n何を知覚するかが、Agentの在り方を形作ります。\n',
+    phaseConnection: '\n--- フェーズ B: 接続設定 ---\n',
     brainIntro: '\u30d6\u30ec\u30a4\u30f3 \u2014 Agent \u306b\u306f\u601d\u8003\u7528\u306e LLM \u304c\u5fc5\u8981\u3067\u3059\u3002\n',
     whichLlm: '\u3069\u306e LLM \u3092\u4f7f\u3044\u307e\u3059\u304b\uff1f',
     validatingApiKey: '  API key \u3092\u691c\u8a3c\u4e2d... ',
@@ -348,11 +364,35 @@ export async function runWizard(env: DetectionResult): Promise<WizardResult> {
     const nameInput = await ask(rl, s.askName);
     result.name = nameInput || 'My Assistant';
 
-    const personaInput = await ask(rl, s.askPersona);
-    result.persona = personaInput;
+    let personaInput = await ask(rl, s.askPersona);
+    if (!personaInput) {
+      personaInput = await ask(rl, s.personaMatters);
+    }
+    result.persona = personaInput || s.personaDefault;
 
     const traitsInput = await ask(rl, s.askTraits);
-    if (traitsInput) result.traits = traitsInput;
+    result.traits = traitsInput || s.traitsDefault;
+
+    // Perception — epistemic gate: choose what to see before configuring how to think
+    console.log(s.phasePerception);
+    const perceptionOptions: Array<{ label: string; value: 'workspace' | 'browser-tabs' | 'git-activity' }> = [
+      { label: s.workspaceChanges, value: 'workspace' },
+    ];
+    if (env.chrome.available) {
+      perceptionOptions.push({ label: s.browserTabs, value: 'browser-tabs' });
+    }
+    if (env.git.available) {
+      perceptionOptions.push({ label: s.gitActivity, value: 'git-activity' });
+    }
+
+    const perceptionSelected = await chooseMany(
+      rl,
+      s.selectPerception,
+      perceptionOptions.map(o => o.label),
+    );
+    if (perceptionSelected.length > 0) {
+      result.perceptions = perceptionSelected.map(i => perceptionOptions[i].value);
+    }
 
     // Phase B: Brain
     console.log(s.phaseConnection);
@@ -454,27 +494,6 @@ export async function runWizard(env: DetectionResult): Promise<WizardResult> {
       }
     } else if (mouthChoice === 1) {
       result.notifications.push({ type: 'console' });
-    }
-
-    // Perception — what should the agent observe?
-    console.log(s.perceptionIntro);
-    const perceptionOptions: Array<{ label: string; value: 'workspace' | 'browser-tabs' | 'git-activity' }> = [
-      { label: s.workspaceChanges, value: 'workspace' },
-    ];
-    if (env.chrome.available) {
-      perceptionOptions.push({ label: s.browserTabs, value: 'browser-tabs' });
-    }
-    if (env.git.available) {
-      perceptionOptions.push({ label: s.gitActivity, value: 'git-activity' });
-    }
-
-    const selected = await chooseMany(
-      rl,
-      s.selectPerception,
-      perceptionOptions.map(o => o.label),
-    );
-    if (selected.length > 0) {
-      result.perceptions = selected.map(i => perceptionOptions[i].value);
     }
 
     console.log();
