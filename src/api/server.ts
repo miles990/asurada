@@ -42,7 +42,7 @@ export async function startServer(
   options?: ServerOptions,
 ): Promise<AgentServer> {
   const app = express();
-  const port = options?.port ?? parseInt(process.env.PORT ?? '3000', 10);
+  const port = options?.port ?? parseInt(process.env.PORT ?? '3001', 10);
   const startTime = Date.now();
 
   // --- Middleware ---
@@ -296,11 +296,17 @@ export async function startServer(
   });
 
   // Serve dashboard UI
+  const uiDir = path.join(
+    path.dirname(new URL(import.meta.url).pathname),
+    '../ui',
+  );
+
+  app.get('/', (_req, res) => {
+    res.redirect('/dashboard');
+  });
+
   app.get('/dashboard', (_req, res) => {
-    const dashboardPath = path.join(
-      path.dirname(new URL(import.meta.url).pathname),
-      '../ui/dashboard.html',
-    );
+    const dashboardPath = path.join(uiDir, 'dashboard.html');
     if (fs.existsSync(dashboardPath)) {
       res.sendFile(dashboardPath);
     } else {

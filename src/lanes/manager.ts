@@ -12,6 +12,7 @@
 
 import { execSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import os from 'node:os';
 import type {
   TaskSpec,
   TaskResult,
@@ -97,7 +98,7 @@ export class LaneManager extends EventEmitter {
       id: taskId,
       maxTurns,
       timeoutMs,
-      workdir: task.workdir.replace(/^~/, process.env.HOME ?? ''),
+      workdir: task.workdir.replace(/^~/, os.homedir()),
     };
 
     if (this.active.size >= this.config.maxConcurrent) {

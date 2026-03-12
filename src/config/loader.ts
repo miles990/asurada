@@ -5,6 +5,7 @@
  */
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import type { AgentConfig } from './types.js';
@@ -200,17 +201,24 @@ export function writeConfig(dir: string, options?: Parameters<typeof generateCon
  * Default data directory following platform conventions.
  * - macOS: ~/Library/Application Support/asurada
  * - Linux: $XDG_DATA_HOME/asurada or ~/.local/share/asurada
- * - Windows: %USERPROFILE%/.local/share/asurada (fallback)
+ * - Windows: %APPDATA%/asurada or %USERPROFILE%/.local/share/asurada (fallback)
  */
 export function getDefaultDataDir(): string {
   const xdg = process.env.XDG_DATA_HOME;
   if (xdg) return path.join(xdg, 'asurada');
 
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? '.';
   if (process.platform === 'darwin') {
+    const home = os.homedir();
     return path.join(home, 'Library', 'Application Support', 'asurada');
   }
-  return path.join(home, '.local', 'share', 'asurada');
+  if (process.platform === 'win32') {
+    // Interface prepared for Windows — use APPDATA if available
+    const appData = process.env.APPDATA;
+    if (appData) return path.join(appData, 'asurada');
+    return path.join(os.homedir(), '.local', 'share', 'asurada');
+  }
+  // Linux and others
+  return path.join(os.homedir(), '.local', 'share', 'asurada');
 }
 
 // =============================================================================

@@ -102,7 +102,13 @@ function generateSoulSeed(name: string, persona?: string, traits?: string): stri
     : 'A personal AI assistant — curious, helpful, and growing.';
   const traitLines = buildTraitLines(traits);
 
-  return `# ${name}
+  return `---
+type: identity
+tags: [soul, identity]
+created: ${new Date().toISOString().slice(0, 10)}
+---
+
+# ${name}
 
 ## Who I Am
 I'm **${name}** — ${personaLine}
