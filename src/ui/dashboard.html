@@ -369,7 +369,7 @@ async function refreshIndex() {
 
   const types = Object.entries(data)
     .filter(([k]) => k !== 'total')
-    .sort((a, b) => (b[1] as number) - (a[1] as number));
+    .sort((a, b) => b[1] - a[1]);
 
   el.innerHTML = `
     <div class="metric">
