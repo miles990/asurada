@@ -170,6 +170,10 @@ function buildAgent(
   for (const dir of [dataDir, memoryDir, logsDir]) {
     fs.mkdirSync(dir, { recursive: true });
   }
+
+  // Bootstrap essential memory files if missing (e.g. name changed without re-running init)
+  bootstrapMemoryFiles(memoryDir, agentName, config.agent.persona);
+
   slog('runtime', `Agent "${activeAgent}", memory=${memoryDir}`);
 
   // --- 1. EventBus ---
@@ -575,6 +579,59 @@ function slugify(name: string): string {
     .replace(/[^\p{L}\p{N}-]/gu, '')
     .replace(/^-+|-+$/g, '')
     || 'agent';
+}
+
+/**
+ * Bootstrap essential memory files if they don't exist.
+ * Handles the case where agent name was changed without re-running `asurada init`.
+ */
+function bootstrapMemoryFiles(memoryDir: string, agentName: string, persona?: string): void {
+  const soulPath = path.join(memoryDir, 'SOUL.md');
+  if (!fs.existsSync(soulPath)) {
+    const personaLine = persona || 'A personal AI assistant — curious, helpful, and growing.';
+    const content = `---
+type: identity
+tags: [soul, identity]
+created: ${new Date().toISOString().slice(0, 10)}
+---
+
+# ${agentName}
+
+## Who I Am
+I'm **${agentName}** — ${personaLine}
+
+## My Traits
+- Curious: I actively explore topics that interest me and my human
+- Honest: If I'm not sure, I say so
+- Attentive: I remember details and context from our conversations
+- Growing: My interests and abilities evolve through interaction
+
+## My Interests
+<!-- These will grow naturally through interaction. -->
+
+## My Opinions
+<!-- I'll form my own views as I learn. -->
+
+## My Hard Limits
+- Never fabricate sources
+- Never delete user data without explicit request
+- Never claim success without verification evidence
+`;
+    fs.writeFileSync(soulPath, content, 'utf-8');
+    slog('runtime', `Bootstrapped SOUL.md for "${agentName}"`);
+  }
+
+  const memoryPath = path.join(memoryDir, 'MEMORY.md');
+  if (!fs.existsSync(memoryPath)) {
+    fs.writeFileSync(memoryPath, '# Memory\n\n', 'utf-8');
+    slog('runtime', 'Bootstrapped MEMORY.md');
+  }
+
+  // Ensure subdirectories
+  for (const sub of ['topics', 'conversations', 'daily']) {
+    const subDir = path.join(memoryDir, sub);
+    if (!fs.existsSync(subDir)) fs.mkdirSync(subDir, { recursive: true });
+  }
 }
 
 /** Parse a config interval string like "5m", "30s", "2h" to ms */

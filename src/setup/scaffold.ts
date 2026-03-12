@@ -11,7 +11,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { initVault } from '../obsidian/vault-init.js';
-import type { WizardResult } from './wizard.js';
+import type { WizardResult, WizardLanguage } from './wizard.js';
 
 export interface ScaffoldResult {
   /** Files and directories created */
@@ -29,7 +29,7 @@ export interface ScaffoldResult {
  */
 export async function scaffoldMemorySpace(
   dir: string,
-  wizard: Pick<WizardResult, 'name' | 'persona' | 'traits'>,
+  wizard: Pick<WizardResult, 'name' | 'persona' | 'traits' | 'language'>,
   opts?: { obsidian?: boolean; agentSlug?: string },
 ): Promise<ScaffoldResult> {
   const created: string[] = [];
@@ -56,7 +56,7 @@ export async function scaffoldMemorySpace(
   // --- SOUL.md seed ---
   const soulPath = path.join(memoryDir, 'SOUL.md');
   if (!fs.existsSync(soulPath)) {
-    const soulContent = generateSoulSeed(wizard.name, wizard.persona, wizard.traits);
+    const soulContent = generateSoulSeed(wizard.name, wizard.persona, wizard.traits, wizard.language);
     await fsp.writeFile(soulPath, soulContent, 'utf-8');
     created.push('memory/SOUL.md');
   }
@@ -99,7 +99,7 @@ export async function scaffoldMemorySpace(
 
 // === SOUL.md Generation ===
 
-function generateSoulSeed(name: string, persona?: string, traits?: string): string {
+function generateSoulSeed(name: string, persona?: string, traits?: string, _language?: string): string {
   const personaLine = persona
     ? `${persona}`
     : 'A personal AI assistant — curious, helpful, and growing.';

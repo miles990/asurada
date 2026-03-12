@@ -104,6 +104,7 @@ async function cmdInit(): Promise<void> {
   let name = option('name') ?? 'My Assistant';
   let persona: string | undefined;
   let traits: string | undefined;
+  let language: 'en' | 'zh-TW' | 'ja' | undefined;
   let runner: string | undefined;
   let perceptions: Array<'workspace' | 'browser-tabs' | 'git-activity'> | undefined;
   let notifications: Array<{ type: string; options?: Record<string, unknown> }> = [];
@@ -124,6 +125,7 @@ async function cmdInit(): Promise<void> {
 
     persona = wizard.persona;
     traits = wizard.traits;
+    language = wizard.language;
     perceptions = wizard.perceptions;
   }
 
@@ -144,7 +146,7 @@ async function cmdInit(): Promise<void> {
   // Phase D: Memory space scaffold
   initGitRepo(dir);
   const agentSlug = slugify(name);
-  const scaffold = await scaffoldMemorySpace(dir, { name, persona, traits }, {
+  const scaffold = await scaffoldMemorySpace(dir, { name, persona, traits, language: language ?? 'en' }, {
     obsidian: env.obsidian.available,
     agentSlug,
   });
