@@ -127,7 +127,8 @@ Perception (See)  →  OODA Loop (Think)  →  Actions (Do)
 | **Config** | YAML-based. Sensible defaults, zero-config possible |
 | **Logging** | Structured `slog()` + `diagLog()` + behavior tracking |
 | **CLI** | `asurada start`, `asurada status`, `asurada init` |
-| **CycleRunners** | Built-in: `ClaudeCliRunner` (zero-config) + `AnthropicApiRunner` (direct API) |
+| **CycleRunners** | Built-in: `ClaudeCliRunner` (zero-config) + `AnthropicApiRunner` (direct API) + `OpenAICompatibleRunner` (Ollama, etc.) |
+| **Model Router** | SKIP/REFLECT/ESCALATE triage — routes cycles to lightweight or full models based on routing temperature (human recency + active threads) |
 
 ### Action Tags
 
@@ -237,11 +238,11 @@ For the full guide — real-world examples, advanced patterns (circuit breaker, 
 ## Requirements
 
 - Node.js >= 20
-- Claude Code CLI or Anthropic API key
+- One of: Claude Code CLI, Anthropic API key, or any OpenAI-compatible LLM (Ollama, etc.)
 
 ## Status
 
-Alpha — feature-complete and tested (77 tests, CI green). The core architecture is stable: perception loop, memory index, multi-lane execution, model routing, Obsidian integration. APIs may change before 1.0.
+Alpha — feature-complete and tested (205 tests across 31 suites, CI green). The core architecture is stable: perception loop, memory index, multi-lane execution, model routing, Obsidian integration. APIs may change before 1.0.
 
 Born from [mini-agent](https://github.com/miles990/mini-agent), a perception-driven personal AI that has run 1,400+ autonomous cycles.
 
