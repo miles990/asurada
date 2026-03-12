@@ -333,7 +333,7 @@ async function cmdStart(): Promise<void> {
   if (firstTime) {
     // Phase E: First-run greeting — agent introduces itself
     const pluginCount = config.perception?.plugins?.filter(p => p.enabled !== false).length ?? 0;
-    const info = gatherFirstRunInfo({ name: agentName, port: server.port, pluginCount });
+    const info = gatherFirstRunInfo({ name: agentName, port: server.port, pluginCount, language: config.agent.language });
     console.log(formatFirstRunGreeting(info));
     markFirstRunDone(instanceDataDir);
   } else {

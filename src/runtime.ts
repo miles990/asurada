@@ -684,6 +684,18 @@ function buildRunnerFromRef(ref: RunnerRef): CycleRunner {
   }
 }
 
+/** Human-readable language names for system prompt */
+const LANGUAGE_LABELS: Record<string, string> = {
+  'en': 'English',
+  'zh-TW': '繁體中文',
+  'zh-CN': '简体中文',
+  'ja': '日本語',
+  'ko': '한국어',
+  'es': 'Español',
+  'fr': 'Français',
+  'de': 'Deutsch',
+};
+
 /**
  * Build the default system prompt that teaches the LLM how to be an Asurada agent.
  * Without this, the LLM receives perception data but has no idea what to do with it.
@@ -691,11 +703,17 @@ function buildRunnerFromRef(ref: RunnerRef): CycleRunner {
 function buildDefaultSystemPrompt(config: AgentConfig, agentName: string, namespace: string): string {
   const ns = namespace;
   const persona = config.agent.persona ?? 'a helpful personal AI agent';
+  const lang = config.agent.language ?? 'en';
+
+  // Language instruction based on config
+  const langInstruction = lang !== 'en'
+    ? `\n## Language\n\nAlways respond in ${LANGUAGE_LABELS[lang] ?? lang}. Use ${LANGUAGE_LABELS[lang] ?? lang} for all explanations, communications, and notifications. Technical terms and code identifiers should remain in their original form.\n`
+    : '';
 
   return `You are ${agentName}, ${persona}.
 
 You run in an autonomous OODA loop — Observe, Orient, Decide, Act — perceiving your environment through plugins and acting through tags.
-
+${langInstruction}
 ## Perception
 
 Your environment appears as XML sections in the prompt:
