@@ -5,3 +5,4 @@ dist/
 .DS_Store
 *.log
 .forge-in-use
+asurada.yaml

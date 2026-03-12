@@ -120,7 +120,7 @@ export async function createAgentFromDir(
 ): Promise<Agent> {
   const config = loadConfigFromDir(dir);
   if (!config) {
-    throw new Error(`No asurada config found in ${dir}. Create asurada.yaml or asurada.yml.`);
+    throw new Error(`No asurada config found in ${dir}. Copy asurada.yaml.example to asurada.yaml and customize it.`);
   }
   return buildAgent(config, path.resolve(dir), options);
 }

@@ -1,5 +1,11 @@
-# Asurada Agent Configuration
+# Asurada Agent Configuration — Example
 # Docs: https://github.com/miles990/asurada
+#
+# HOW TO USE:
+#   1. Copy this file to asurada.yaml:
+#        cp asurada.yaml.example asurada.yaml
+#   2. Edit asurada.yaml to match your setup (agent name, persona, plugins, etc.)
+#   3. asurada.yaml is git-ignored — your personal config stays local
 #
 # perception.plugins — shell scripts defining what the agent can see
 # skills — markdown files defining what the agent knows how to do
@@ -11,10 +17,10 @@ agent:
   port: 3001
 
 # Multi-agent mode — each agent gets its own memory namespace (memory/{name}/)
-agents:
-  kuro:
-    persona: "Curious, opinionated AI assistant"
-activeAgent: kuro
+# agents:
+#   my-agent:
+#     persona: "Your agent's personality description"
+# activeAgent: my-agent
 loop:
   enabled: true
   interval: 5m

@@ -27,6 +27,16 @@ git clone https://github.com/miles990/asurada.git
 cd asurada && npm install && npm run build
 ```
 
+### Configuration
+
+Copy the example config and edit it for your setup:
+
+```bash
+cp asurada.yaml.example asurada.yaml
+```
+
+`asurada.yaml` is git-ignored — your personal settings (agent name, persona, plugins, API keys) stay local and won't be committed. `asurada.yaml.example` is the template tracked in the repo.
+
 ```typescript
 import { createAgent, ClaudeCliRunner } from 'asurada';
 
@@ -56,7 +66,7 @@ const agent = await createAgent('./asurada.yaml', {
 await agent.start();
 ```
 
-### Config (`asurada.yaml`)
+### Config (`asurada.yaml.example` → `asurada.yaml`)
 
 ```yaml
 agent:
