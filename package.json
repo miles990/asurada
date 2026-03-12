@@ -1,6 +1,6 @@
 {
   "name": "asurada",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "description": "Perception-driven personal AI agent framework — grows with you, not just for you",
   "type": "module",
   "main": "dist/index.js",
@@ -10,6 +10,10 @@
   },
   "files": [
     "dist",
+    "!dist/**/*.test.js",
+    "!dist/**/*.test.js.map",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.d.ts.map",
     "README.md",
     "LICENSE"
   ],
