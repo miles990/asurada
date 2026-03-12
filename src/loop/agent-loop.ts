@@ -20,6 +20,7 @@ import type {
   ParsedAction,
 } from './types.js';
 import { ModelRouter } from './model-router.js';
+import { StimulusDedup, buildStimulusFingerprint, DEDUP_HINT } from './stimulus-dedup.js';
 
 export class AgentLoop {
   private readonly events: EventBus;
@@ -39,6 +40,8 @@ export class AgentLoop {
   private lastHumanMessageAt: Date | null = null;
   /** Tracked for ModelRouter: is there an active conversation thread? */
   private hasActiveThread = false;
+  /** Stimulus fingerprint dedup (null if dataDir not configured) */
+  private readonly stimulusDedup: StimulusDedup | null;
 
   constructor(
     events: EventBus,
@@ -55,6 +58,7 @@ export class AgentLoop {
       maxInterval: 14_400_000,   // 4h
       ...options,
     };
+    this.stimulusDedup = options.dataDir ? new StimulusDedup(options.dataDir) : null;
   }
 
   /** Start the OODA loop */
@@ -183,7 +187,24 @@ export class AgentLoop {
         ? this.options.systemPrompt()
         : this.options.systemPrompt ?? '';
 
-      // 5. Sync ModelRouter state (if applicable)
+      // 5. Stimulus fingerprint dedup — check before calling LLM
+      //    Extracts topic-like tokens from the prompt and builds a fingerprint.
+      //    If the same trigger+topics appeared recently, inject a dedup hint.
+      let finalPrompt = prompt;
+      if (this.stimulusDedup) {
+        const triggerKey = context.trigger.type === 'event' && context.trigger.event
+          ? `${context.trigger.event.type}:${JSON.stringify(context.trigger.event.data ?? '').slice(0, 100)}`
+          : context.trigger.type;
+        // Extract topic names from perception keys as a proxy for "what's in the stimulus"
+        const topics = Object.keys(context.perception);
+        const fp = buildStimulusFingerprint(triggerKey, topics);
+        const dedupResult = this.stimulusDedup.checkAndRecord(fp, triggerKey);
+        if (dedupResult.isDuplicate) {
+          finalPrompt = `${DEDUP_HINT}\n\n${prompt}`;
+        }
+      }
+
+      // 5b. Sync ModelRouter state (if applicable)
       if (this.options.runner instanceof ModelRouter) {
         this.options.runner.lastHumanMessageAt = this.lastHumanMessageAt;
         this.options.runner.hasActiveThread = this.hasActiveThread;
@@ -191,7 +212,7 @@ export class AgentLoop {
 
       // 6. Call LLM
       if (abort.signal.aborted) return null;
-      const response = await this.options.runner.run(prompt, systemPrompt);
+      const response = await this.options.runner.run(finalPrompt, systemPrompt);
 
       if (abort.signal.aborted) return null;
 

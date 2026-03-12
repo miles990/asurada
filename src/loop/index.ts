@@ -27,3 +27,5 @@ export type {
 } from './model-router.js';
 export { RouteTelemetry } from './route-telemetry.js';
 export type { TelemetryEntry, TelemetrySummary } from './route-telemetry.js';
+export { StimulusDedup, buildStimulusFingerprint, DEDUP_HINT } from './stimulus-dedup.js';
+export type { DedupCheckResult } from './stimulus-dedup.js';

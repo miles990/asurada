@@ -105,4 +105,11 @@ export interface AgentLoopOptions {
 
   /** Max interval for scheduling in ms (default: 14400000 = 4h) */
   maxInterval?: number;
+
+  /**
+   * Data directory for stimulus fingerprint dedup storage.
+   * When set, enables duplicate stimulus detection — if the same trigger+topics
+   * combination is seen within a 4h window, a dedup hint is injected into the prompt.
+   */
+  dataDir?: string;
 }

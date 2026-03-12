@@ -87,6 +87,7 @@ export {
   type DirectionChangeContext,
   type MemoryContextResult,
   type ContextBuildOptions,
+  type ConversationMessage,
 } from './memory/index.js';
 
 export {
@@ -129,6 +130,9 @@ export {
   parseDuration,
   ClaudeCliRunner,
   AnthropicApiRunner,
+  StimulusDedup,
+  buildStimulusFingerprint,
+  DEDUP_HINT,
   type ClaudeCliOptions,
   type AnthropicApiOptions,
   type AgentLoopOptions,
@@ -140,6 +144,7 @@ export {
   type RoutingDecision,
   type ModelRouterOptions,
   type RouteLogEvent,
+  type DedupCheckResult,
 } from './loop/index.js';
 
 // HTTP API

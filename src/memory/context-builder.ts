@@ -54,6 +54,12 @@ export interface MemoryContextResult {
   skipped: string[];
 }
 
+/** A conversation message for keyword extraction */
+export interface ConversationMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 /** Options for context building */
 export interface ContextBuildOptions {
   /** Maximum number of topics to load (default: 5) */
@@ -68,6 +74,12 @@ export interface ContextBuildOptions {
   includeMainMemory?: boolean;
   /** Maximum entries in memory-index manifest (default: 20) */
   maxManifestEntries?: number;
+  /**
+   * Recent conversation history for keyword extraction.
+   * Only non-assistant messages are used as keyword sources — this prevents
+   * the agent's own verbose responses from polluting topic matching.
+   */
+  conversationHistory?: ConversationMessage[];
 }
 
 export class ContextBuilder {
@@ -94,7 +106,11 @@ export class ContextBuilder {
     const allTopics = await this.store.listTopics();
 
     // 2. Keyword-based topic selection (preserved from mini-agent pattern)
-    const keywordTopics = this.matchTopicsByKeyword(query, allTopics);
+    //    Enrich the query with conversation history keywords, but only from
+    //    non-assistant messages — the agent's own responses are excluded to
+    //    prevent its verbose output from dominating topic matching.
+    const enrichedQuery = this.enrichQueryFromHistory(query, options?.conversationHistory);
+    const keywordTopics = this.matchTopicsByKeyword(enrichedQuery, allTopics);
 
     // 3. Memory-index boosted topics (Phase 6 addition)
     const indexTopics = await this.index.getRelevantTopics(query, maxBoostTopics + keywordTopics.length);
@@ -189,6 +205,24 @@ export class ContextBuilder {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * Enrich the query with keywords from recent conversation history.
+   * Only non-assistant messages are used — this prevents the agent's own
+   * verbose responses from polluting topic matching (repeated-response fix).
+   */
+  private enrichQueryFromHistory(query: string, history?: ConversationMessage[]): string {
+    if (!history || history.length === 0) return query;
+
+    const userMessages = history
+      .filter(c => c.role !== 'assistant')
+      .slice(-3)
+      .map(c => c.content.toLowerCase());
+
+    if (userMessages.length === 0) return query;
+
+    return [query, ...userMessages].join(' ');
+  }
 
   /**
    * Simple keyword matching: check if query tokens appear in topic names.

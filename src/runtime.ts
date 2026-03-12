@@ -401,6 +401,7 @@ function buildAgent(
       defaultInterval: loopInterval,
       minInterval: 30_000,
       maxInterval: 14_400_000,
+      dataDir,
     });
   }
 

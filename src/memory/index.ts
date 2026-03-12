@@ -20,4 +20,5 @@ export type {
   DirectionChangeContext,
   MemoryContextResult,
   ContextBuildOptions,
+  ConversationMessage,
 } from './context-builder.js';
