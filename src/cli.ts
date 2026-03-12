@@ -279,7 +279,17 @@ async function cmdStart(): Promise<void> {
     return startDaemon(configPath, config);
   }
 
-  // Apply --agent override for multi-agent mode
+  // Apply CLI overrides (CLI flags > config file > defaults)
+  const portOverride = option('port');
+  if (portOverride) {
+    const parsed = parseInt(portOverride, 10);
+    if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
+      console.error(`Invalid port: "${portOverride}"`);
+      process.exit(1);
+    }
+    config.agent.port = parsed;
+  }
+
   const agentOverride = option('agent');
   if (agentOverride) {
     if (config.agents && !(agentOverride in config.agents)) {
@@ -312,8 +322,8 @@ async function cmdStart(): Promise<void> {
   await agent.start();
 
   // Start HTTP API server
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : (config.agent.port ?? 3001);
-  const apiKey = process.env.ASURADA_API_KEY;
+  const port = config.agent.port ?? 3001;
+  const apiKey = config.agent.apiKey;
   const server = await startServer(agent, { port, apiKey });
 
   if (firstTime) {
@@ -362,13 +372,10 @@ async function startDaemon(
   const info = await pm.start({
     instanceId,
     entryScript: cliEntry,
-    args: ['start'],
-    port: process.env.PORT ? parseInt(process.env.PORT, 10) : (config.agent.port ?? 3001),
+    args: ['start', '--config', resolvedConfig],
+    port: config.agent.port ?? 3001,
     workDir: path.dirname(resolvedConfig),
     logsDir: path.join(dataDir, instanceId, 'logs'),
-    env: {
-      ASURADA_CONFIG: resolvedConfig,
-    },
   });
 
   if (info.running) {
@@ -427,7 +434,7 @@ async function cmdStatus(): Promise<void> {
   if (info?.running) {
     console.log(`Status: running (pid: ${info.pid})`);
     // Try HTTP health check
-    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : (config.agent.port ?? 3001);
+    const port = config.agent.port ?? 3001;
     try {
       const res = await fetch(`http://localhost:${port}/health`, {
         signal: AbortSignal.timeout(3000),
@@ -522,6 +529,7 @@ Init options:
   --port <port>       HTTP port (default: 3001)
 
 Start options:
+  --port <port>       HTTP port (overrides config file)
   --agent <name>      Load a specific agent (multi-agent mode)
 
 https://github.com/miles990/asurada
@@ -541,10 +549,11 @@ function autoDetectRunner(config: AgentConfig): CreateAgentOptions | undefined {
   if (config.loop?.enabled === false) return undefined;
 
   const model = config.loop?.model ?? 'sonnet';
-  const escalateRunner = resolveBaseRunner(config.loop?.runner, model);
+  const anthropicApiKey = config.loop?.anthropicApiKey;
+  const escalateRunner = resolveBaseRunner(config.loop?.runner, model, anthropicApiKey);
   if (!escalateRunner) {
     console.warn('Warning: No LLM runner available. OODA loop disabled.');
-    console.warn('  Set ANTHROPIC_API_KEY or install Claude Code CLI.');
+    console.warn('  Set loop.anthropicApiKey in asurada.yaml or install Claude Code CLI.');
     return undefined;
   }
 
@@ -552,10 +561,10 @@ function autoDetectRunner(config: AgentConfig): CreateAgentOptions | undefined {
   const routerConfig = config.loop?.router;
   if (routerConfig?.enabled) {
     const triageRunner = routerConfig.triageRunner
-      ? resolveRunnerRef(routerConfig.triageRunner)
+      ? resolveRunnerRef(routerConfig.triageRunner, anthropicApiKey)
       : null;
     const reflectRunner = routerConfig.reflectRunner
-      ? resolveRunnerRef(routerConfig.reflectRunner)
+      ? resolveRunnerRef(routerConfig.reflectRunner, anthropicApiKey)
       : null;
 
     if (!triageRunner) {
@@ -581,15 +590,14 @@ function autoDetectRunner(config: AgentConfig): CreateAgentOptions | undefined {
 }
 
 /** Resolve a base runner from config hint or auto-detection */
-function resolveBaseRunner(runnerHint: string | undefined, model: string): CycleRunner | null {
+function resolveBaseRunner(runnerHint: string | undefined, model: string, anthropicApiKey?: string): CycleRunner | null {
   if (runnerHint === 'anthropic-api') {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      console.error('Error: loop.runner is "anthropic-api" but ANTHROPIC_API_KEY is not set');
+    if (!anthropicApiKey) {
+      console.error('Error: loop.runner is "anthropic-api" but loop.anthropicApiKey is not set in config');
       process.exit(1);
     }
     console.log(`Runner: Anthropic API (model: ${model})`);
-    return new AnthropicApiRunner({ apiKey, model });
+    return new AnthropicApiRunner({ apiKey: anthropicApiKey, model });
   }
 
   if (runnerHint === 'claude-cli') {
@@ -598,10 +606,9 @@ function resolveBaseRunner(runnerHint: string | undefined, model: string): Cycle
   }
 
   // Auto-detect
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (apiKey) {
+  if (anthropicApiKey) {
     console.log(`Runner: Anthropic API [auto-detected] (model: ${model})`);
-    return new AnthropicApiRunner({ apiKey, model });
+    return new AnthropicApiRunner({ apiKey: anthropicApiKey, model });
   }
 
   if (hasClaude()) {
@@ -613,10 +620,10 @@ function resolveBaseRunner(runnerHint: string | undefined, model: string): Cycle
 }
 
 /** Resolve a RunnerRef from router config to a concrete CycleRunner */
-function resolveRunnerRef(ref: RunnerRef): CycleRunner | null {
+function resolveRunnerRef(ref: RunnerRef, fallbackApiKey?: string): CycleRunner | null {
   switch (ref.type) {
     case 'anthropic-api': {
-      const apiKey = ref.apiKey ?? process.env.ANTHROPIC_API_KEY;
+      const apiKey = ref.apiKey ?? fallbackApiKey;
       if (!apiKey) return null;
       return new AnthropicApiRunner({ apiKey, model: ref.model ?? 'haiku' });
     }
@@ -648,10 +655,6 @@ function hasClaude(): boolean {
 // === Helpers ===
 
 function resolveConfig(): string {
-  // Check env var first (used by daemon mode)
-  const fromEnv = process.env.ASURADA_CONFIG;
-  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
-
   const specific = option('config') ?? option('c');
   const configFile = findConfigFile(undefined, specific);
   if (!configFile) {

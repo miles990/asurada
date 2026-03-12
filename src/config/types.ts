@@ -52,6 +52,8 @@ export interface AgentIdentity {
   persona?: string;
   /** HTTP API port */
   port?: number;
+  /** API key for HTTP server auth */
+  apiKey?: string;
 }
 
 /** OODA loop configuration */
@@ -64,6 +66,8 @@ export interface LoopConfig {
   model?: string;
   /** Runner type hint for CLI auto-detection: "claude-cli" | "anthropic-api" */
   runner?: string;
+  /** Anthropic API key (replaces ANTHROPIC_API_KEY env var) */
+  anthropicApiKey?: string;
   /** Intelligent cost routing (SKIP/REFLECT/ESCALATE) */
   router?: RouterConfig;
 }
@@ -94,7 +98,7 @@ export interface RunnerRef {
   model?: string;
   /** OpenAI-compatible base URL (required for type: "openai-compatible") */
   baseUrl?: string;
-  /** API key override (default: from environment) */
+  /** API key override */
   apiKey?: string;
 }
 

@@ -42,7 +42,7 @@ export async function startServer(
   options?: ServerOptions,
 ): Promise<AgentServer> {
   const app = express();
-  const port = options?.port ?? parseInt(process.env.PORT ?? '3001', 10);
+  const port = options?.port ?? 3001;
   const startTime = Date.now();
 
   // --- Middleware ---
@@ -61,8 +61,8 @@ export async function startServer(
     next();
   });
 
-  // Auth middleware (optional)
-  const apiKey = options?.apiKey ?? process.env.ASURADA_API_KEY;
+  // Auth middleware (optional — set agent.apiKey in asurada.yaml)
+  const apiKey = options?.apiKey;
   if (apiKey) {
     app.use((req, res, next) => {
       // Skip auth for health check

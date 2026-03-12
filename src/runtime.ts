@@ -199,8 +199,8 @@ function buildAgent(
         break;
       case 'telegram': {
         const opts = entry.options as { botToken?: string; chatId?: string | number } | undefined;
-        const botToken = opts?.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
-        const chatId = opts?.chatId ?? process.env.TELEGRAM_CHAT_ID;
+        const botToken = opts?.botToken;
+        const chatId = opts?.chatId;
         if (botToken && chatId) {
           notifications.register(new TelegramProvider({ botToken, chatId }));
         } else {
@@ -602,9 +602,9 @@ function buildRunnerFromRef(ref: RunnerRef): CycleRunner {
       });
 
     case 'anthropic-api': {
-      const apiKey = ref.apiKey ?? process.env.ANTHROPIC_API_KEY;
+      const apiKey = ref.apiKey;
       if (!apiKey) {
-        throw new Error('anthropic-api runner requires apiKey or ANTHROPIC_API_KEY env var');
+        throw new Error('anthropic-api runner requires apiKey in config (set loop.anthropicApiKey in asurada.yaml)');
       }
       return new AnthropicApiRunner({
         apiKey,

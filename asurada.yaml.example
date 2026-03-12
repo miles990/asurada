@@ -7,6 +7,10 @@
 #   2. Edit asurada.yaml to match your setup (agent name, persona, plugins, etc.)
 #   3. asurada.yaml is git-ignored — your personal config stays local
 #
+# IMPORTANT: Asurada reads ALL configuration from this file — no environment
+# variables. API keys, tokens, and secrets all go here. Keep asurada.yaml
+# out of version control (.gitignore handles this automatically).
+#
 # perception.plugins — shell scripts defining what the agent can see
 # skills — markdown files defining what the agent knows how to do
 # loop — autonomous perception-driven cycle
@@ -15,6 +19,7 @@ agent:
   name: My Assistant
   persona: A helpful personal AI assistant that monitors your workspace.
   port: 3001
+  # apiKey: your-api-key-here      # HTTP API auth (optional)
 
 # Multi-agent mode — each agent gets its own memory namespace (memory/{name}/)
 # agents:
@@ -24,6 +29,7 @@ agent:
 loop:
   enabled: true
   interval: 5m
+  # anthropicApiKey: sk-ant-...    # Required for anthropic-api runner
   # router:                     # Three-tier model routing (optional)
   #   enabled: true
   #   shadowMode: true           # Log decisions but always escalate (safe rollout)
@@ -37,6 +43,10 @@ loop:
 notification:
   providers:
     - type: console
+    # - type: telegram
+    #   options:
+    #     botToken: "your-bot-token"
+    #     chatId: "your-chat-id"
 perception:
   categoryIntervals:
     workspace: 60000
