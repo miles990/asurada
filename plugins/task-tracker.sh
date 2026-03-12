@@ -6,7 +6,8 @@
 #
 # Output: structured text for agent context
 
-HEARTBEAT="${ASURADA_HEARTBEAT:-memory/HEARTBEAT.md}"
+MEMORY_DIR="${ASURADA_MEMORY_DIR:-memory}"
+HEARTBEAT="${ASURADA_HEARTBEAT:-${MEMORY_DIR}/HEARTBEAT.md}"
 
 if [ ! -f "$HEARTBEAT" ]; then
   echo "No task file found (${HEARTBEAT})"

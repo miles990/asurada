@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { findConfigFile, loadConfig, writeConfig, getDefaultDataDir, type AgentConfig } from './config/index.js';
-import { createAgent, type CreateAgentOptions } from './runtime.js';
+import { createAgent, createAgentFromConfig, type CreateAgentOptions } from './runtime.js';
 import { startServer } from './api/server.js';
 import { createProcessManager } from './process/factory.js';
 import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
@@ -307,7 +307,8 @@ async function cmdStart(): Promise<void> {
 
   // Auto-detect CycleRunner for OODA loop
   const agentOptions = autoDetectRunner(config);
-  const agent = await createAgent(configPath, agentOptions);
+  const configDir = path.dirname(path.resolve(configPath));
+  const agent = await createAgentFromConfig(config, { ...agentOptions, baseDir: configDir });
   await agent.start();
 
   // Start HTTP API server

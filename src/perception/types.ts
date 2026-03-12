@@ -42,6 +42,8 @@ export interface PerceptionConfig {
   defaultOutputCap?: number;
   /** Per-category interval defaults in ms (e.g. { workspace: 30000, browser: 120000 }) */
   categoryIntervals?: Record<string, number>;
+  /** Extra environment variables passed to all plugin processes */
+  pluginEnv?: Record<string, string>;
 }
 
 /** Per-plugin runtime stats */

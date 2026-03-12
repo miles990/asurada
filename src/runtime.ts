@@ -464,6 +464,10 @@ function buildAgent(
     } satisfies PerceptionPlugin)),
     cwd: baseDir,
     categoryIntervals: config.perception?.categoryIntervals,
+    pluginEnv: {
+      ASURADA_MEMORY_DIR: memoryDir,
+      ASURADA_AGENT: activeAgent,
+    },
   };
 
   // --- Agent state ---

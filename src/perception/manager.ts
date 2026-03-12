@@ -61,6 +61,7 @@ const CIRCUIT_BREAKER_THRESHOLD = 3;
 export class PerceptionManager {
   private streams = new Map<string, StreamEntry>();
   private cwd = '';
+  private pluginEnv: Record<string, string> | undefined;
   private running = false;
   private _version = 0;
   private lastBuildHashes = new Map<string, string>();
@@ -80,6 +81,7 @@ export class PerceptionManager {
     if (this.running) this.stop();
     this.config = config;
     this.cwd = config.cwd;
+    this.pluginEnv = config.pluginEnv;
     this.running = true;
 
     for (const plugin of config.plugins) {
@@ -325,7 +327,7 @@ export class PerceptionManager {
     const start = Date.now();
     try {
       result = await Promise.race([
-        executePlugin(entry.plugin, this.cwd),
+        executePlugin(entry.plugin, this.cwd, this.pluginEnv),
         new Promise<never>((_, reject) =>
           setTimeout(
             () => reject(new Error(`Plugin ${entry.plugin.name} timed out`)),

@@ -23,10 +23,12 @@ const MAX_BUFFER = 1024 * 1024; // 1MB
 export async function executePlugin(
   plugin: PerceptionPlugin,
   cwd?: string,
+  env?: Record<string, string>,
 ): Promise<PerceptionResult> {
   const timeout = plugin.timeout ?? DEFAULT_TIMEOUT;
   const startTime = Date.now();
   const workDir = cwd ?? process.cwd();
+  const pluginEnv = env ? { ...process.env, ...env } : undefined;
 
   // Inline command mode — run via shell
   if (plugin.command) {
@@ -39,6 +41,7 @@ export async function executePlugin(
             timeout,
             cwd: workDir,
             maxBuffer: MAX_BUFFER,
+            ...(pluginEnv && { env: pluginEnv }),
           },
           (error, stdout) => {
             if (error) reject(error);
@@ -87,6 +90,7 @@ export async function executePlugin(
           timeout,
           cwd: workDir,
           maxBuffer: MAX_BUFFER,
+          ...(pluginEnv && { env: pluginEnv }),
         },
         (error, stdout) => {
           if (error) reject(error);
@@ -118,8 +122,9 @@ export async function executePlugin(
 export async function executeAllPlugins(
   plugins: PerceptionPlugin[],
   cwd?: string,
+  env?: Record<string, string>,
 ): Promise<PerceptionResult[]> {
-  return Promise.all(plugins.map(p => executePlugin(p, cwd)));
+  return Promise.all(plugins.map(p => executePlugin(p, cwd, env)));
 }
 
 /**
