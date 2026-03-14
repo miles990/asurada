@@ -10,11 +10,21 @@
  * - Graceful degradation (FTS5 → grep fallback)
  */
 
-import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import type { MemoryEntry, SearchResult, MemoryConfig } from './types.js';
+
+// Dynamic import: better-sqlite3 is an optional dependency (native addon).
+// Falls back to grep-only search when unavailable.
+let BetterSqlite3: any;
+try {
+  const require = createRequire(import.meta.url);
+  BetterSqlite3 = require('better-sqlite3');
+} catch {
+  // better-sqlite3 not installed — FTS5 search disabled, grep fallback active
+}
 
 const STOP_WORDS = new Set([
   'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'has', 'was',
@@ -26,7 +36,7 @@ const STOP_WORDS = new Set([
 ]);
 
 export class MemorySearch {
-  private db: Database.Database | null = null;
+  private db: any = null;
   private readonly dbPath: string;
   private readonly memoryDir: string;
   private readonly topicsDir: string;
@@ -39,13 +49,15 @@ export class MemorySearch {
     this.mainFile = config.mainFile ?? 'MEMORY.md';
   }
 
-  /** Initialize FTS5 database */
+  /** Initialize FTS5 database (no-op if better-sqlite3 not installed) */
   init(): void {
+    if (!BetterSqlite3) return;
+
     try {
       const dir = path.dirname(this.dbPath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-      this.db = new Database(this.dbPath);
+      this.db = new BetterSqlite3(this.dbPath);
       this.db.pragma('journal_mode = WAL');
       this.db.exec(`
         CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(

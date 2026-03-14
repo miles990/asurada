@@ -40,12 +40,21 @@ export interface DirectionChangeContext {
   formatted: string;
 }
 
+/** A formatted feedback entry */
+export interface FeedbackContext {
+  entry: IndexEntry;
+  /** Pre-formatted display string */
+  formatted: string;
+}
+
 /** Result of context building */
 export interface MemoryContextResult {
   /** Loaded topic sections */
   sections: ContextSection[];
   /** Direction-change entries related to loaded topics */
   directionChanges: DirectionChangeContext[];
+  /** User feedback entries (co-evolution patterns) */
+  feedback: FeedbackContext[];
   /** Memory-index manifest (recent entries summary) */
   manifest: string;
   /** Main memory content (if requested) */
@@ -70,6 +79,8 @@ export interface ContextBuildOptions {
   maxTopicChars?: number;
   /** Maximum direction-change entries to include (default: 5) */
   maxDirectionChanges?: number;
+  /** Maximum feedback entries to include (default: 10) */
+  maxFeedback?: number;
   /** Include main memory content (default: false) */
   includeMainMemory?: boolean;
   /** Maximum entries in memory-index manifest (default: 20) */
@@ -146,16 +157,24 @@ export class ContextBuilder {
       formatted: `[${entry.createdAt.slice(0, 10)}] ${entry.content}`,
     }));
 
-    // 7. Build memory-index manifest
+    // 7. Feedback entries (co-evolution — user corrections)
+    const maxFeedback = options?.maxFeedback ?? 10;
+    const feedbackEntries = await this.index.query({ type: 'feedback', limit: maxFeedback });
+    const feedback: FeedbackContext[] = feedbackEntries.map(entry => ({
+      entry,
+      formatted: `[${entry.createdAt.slice(0, 10)}]${entry.tags?.length ? ` [${entry.tags.filter(t => t !== 'feedback').join(',')}]` : ''} ${entry.content}`,
+    }));
+
+    // 8. Build memory-index manifest
     const manifest = await this.buildManifest(maxManifestEntries);
 
-    // 8. Main memory (optional)
+    // 9. Main memory (optional)
     let mainMemory: string | null = null;
     if (options?.includeMainMemory) {
       mainMemory = await this.store.read();
     }
 
-    return { sections, directionChanges, manifest, mainMemory, skipped };
+    return { sections, directionChanges, feedback, manifest, mainMemory, skipped };
   }
 
   /**
@@ -180,6 +199,16 @@ export class ContextBuilder {
         parts.push(`- ${dc.formatted}`);
       }
       parts.push('</direction-changes>');
+      parts.push('');
+    }
+
+    // Feedback (co-evolution — user corrections and behavioral patterns)
+    if (result.feedback.length > 0) {
+      parts.push('<feedback-patterns>');
+      for (const fb of result.feedback) {
+        parts.push(`- ${fb.formatted}`);
+      }
+      parts.push('</feedback-patterns>');
       parts.push('');
     }
 

@@ -70,6 +70,12 @@ export interface LoopConfig {
   runner?: string;
   /** Anthropic API key (replaces ANTHROPIC_API_KEY env var) */
   anthropicApiKey?: string;
+  /**
+   * System prompt profile: "full" (default) or "compact".
+   * Compact keeps only action tags + core guidelines — suitable for 7B/13B local models
+   * that have limited context windows.
+   */
+  promptProfile?: 'compact' | 'full';
   /** Intelligent cost routing (SKIP/REFLECT/ESCALATE) */
   router?: RouterConfig;
 }

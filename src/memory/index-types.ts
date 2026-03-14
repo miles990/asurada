@@ -21,7 +21,8 @@ export type CognitiveType =
   | 'observation'        // Perceptual notes ("I noticed...")
   | 'opinion'            // Formed opinions ("I think...")
   | 'direction-change'   // Strategy/priority shifts ("was X → now Y because Z")
-  | 'understanding';     // Deep comprehension ("I now understand...")
+  | 'understanding'      // Deep comprehension ("I now understand...")
+  | 'feedback';          // User corrections and behavioral patterns (co-evolution)
 
 /** A single entry in the cognitive index */
 export interface IndexEntry {

@@ -306,7 +306,9 @@ function buildAgent(
     // --- Default system prompt: tells the LLM how to be an agent ---
     // Namespace must be valid XML (no spaces). Default to 'agent' for consistency with docs/examples.
     const namespace = options.loop.actionNamespace ?? 'agent';
-    const defaultSystemPrompt = options.loop.systemPrompt ?? buildDefaultSystemPrompt(config, agentName, namespace);
+    const promptProfile = config.loop?.promptProfile ?? 'full';
+    const buildPromptFn = promptProfile === 'compact' ? buildCompactSystemPrompt : buildDefaultSystemPrompt;
+    const defaultSystemPrompt = options.loop.systemPrompt ?? buildPromptFn(config, agentName, namespace);
 
     // --- Default buildPrompt: perception + ContextBuilder memory ---
     const defaultBuildPrompt = options.loop.buildPrompt ?? (async (ctx: CycleContext): Promise<string> => {
@@ -378,6 +380,16 @@ function buildAgent(
           const innerPath = path.join(dataDir, 'inner.md');
           fs.writeFileSync(innerPath, action.content, 'utf-8');
           slog('action', `inner: updated working memory`);
+          break;
+        }
+        case 'feedback': {
+          // Co-evolution: record user corrections and behavioral patterns
+          const pattern = action.attrs.pattern;
+          await index.create('feedback', action.content, {
+            tags: pattern ? ['feedback', pattern] : ['feedback'],
+            source: 'cycle',
+          }).catch(() => {});
+          slog('action', `feedback: ${action.content.slice(0, 80)}${pattern ? ` [${pattern}]` : ''}`);
           break;
         }
         case 'delegate': {
@@ -713,6 +725,7 @@ Respond with these tags to take action. Tags outside this list are ignored.
 | \`<${ns}:task>description</${ns}:task>\` | Create a tracked task |
 | \`<${ns}:inner>state</${ns}:inner>\` | Update working memory (persists across cycles, overwritten each time) |
 | \`<${ns}:delegate type="code" workdir="path">task</${ns}:delegate>\` | Spawn a background task (types: code, learn, research, create, review) |
+| \`<${ns}:feedback pattern="name">correction</${ns}:feedback>\` | Record a user correction or behavioral pattern for co-evolution |
 | \`<${ns}:schedule next="5m" reason="why" />\` | Set next cycle interval (e.g. "30s", "5m", "2h") |
 
 ## Guidelines
@@ -751,6 +764,42 @@ When requiring user action or answering questions:
 - **Solutions over limitations**: Focus on "here's how to fix it" rather than "here's why it's broken."
 - **Branch by state**: Provide different paths based on current conditions ("if X is running → do A; if not → do B").
 - **Never dead-end**: Always offer an alternative or next step. Never just say "can't do that."
+`;
+}
+
+/**
+ * Compact system prompt — minimal token footprint for local models (7B/13B).
+ * Keeps only: identity, action tags, and 3 core guidelines.
+ * ~40% the token count of the full prompt.
+ */
+function buildCompactSystemPrompt(config: AgentConfig, agentName: string, namespace: string): string {
+  const ns = namespace;
+  const persona = config.agent.persona ?? 'a helpful personal AI agent';
+  const lang = config.agent.language ?? 'en';
+
+  const langInstruction = lang !== 'en'
+    ? `\nRespond in ${LANGUAGE_LABELS[lang] ?? lang}.\n`
+    : '';
+
+  return `You are ${agentName}, ${persona}.
+${langInstruction}
+You run in an OODA loop. Perception data appears as XML tags. Respond with action tags:
+
+| Tag | Purpose |
+|-----|---------|
+| \`<${ns}:remember>text</${ns}:remember>\` | Save to memory |
+| \`<${ns}:remember topic="t">text</${ns}:remember>\` | Save to topic |
+| \`<${ns}:chat>message</${ns}:chat>\` | Notify user |
+| \`<${ns}:task>description</${ns}:task>\` | Create task |
+| \`<${ns}:inner>state</${ns}:inner>\` | Update working memory |
+| \`<${ns}:delegate type="code" workdir="path">task</${ns}:delegate>\` | Background task |
+| \`<${ns}:feedback pattern="name">correction</${ns}:feedback>\` | Record correction |
+| \`<${ns}:schedule next="5m" reason="why" />\` | Set next interval |
+
+Rules:
+1. Read perception data before acting
+2. One focus per cycle — brief reasoning + tags
+3. If nothing needs attention, say so briefly
 `;
 }
 
