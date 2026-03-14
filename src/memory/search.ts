@@ -131,6 +131,11 @@ export class MemorySearch {
     }
   }
 
+  /** Whether FTS5 (better-sqlite3) is available */
+  get ftsAvailable(): boolean {
+    return this.db !== null;
+  }
+
   /** Rebuild the entire index from scratch */
   rebuild(): number {
     if (!this.db) {
