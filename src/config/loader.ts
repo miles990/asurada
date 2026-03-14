@@ -130,6 +130,10 @@ export function generateConfig(options?: {
   // Apply wizard-selected runner
   if (options?.runner) {
     config.loop = { ...config.loop, runner: options.runner };
+    // Local models benefit from compact prompt (fewer tokens)
+    if (options.runner === 'openai-compatible') {
+      config.loop.promptProfile = 'compact';
+    }
   }
 
   // Apply wizard-selected notification providers

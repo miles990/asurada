@@ -233,6 +233,9 @@ dist/
 *.db
 *.db-journal
 
+# Config (contains API keys and tokens — never commit)
+asurada.yaml
+
 # Runtime state (not versioned — regenerated on start)
 *.pid
 *.lock
