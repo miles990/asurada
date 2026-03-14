@@ -31,8 +31,10 @@ export class AgentLoop {
 
   private cycleCount = 0;
   private running = false;
+  private stopping = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private currentCycleAbort: AbortController | null = null;
+  private cyclePromise: Promise<CycleResult | null> | null = null;
   private eventHandlers: Array<{ pattern: string; handler: (e: AgentEvent) => void }> = [];
   private agentName: string;
 
@@ -42,6 +44,12 @@ export class AgentLoop {
   private hasActiveThread = false;
   /** Stimulus fingerprint dedup (null if dataDir not configured) */
   private readonly stimulusDedup: StimulusDedup | null;
+  /** Circuit breaker: consecutive failure counter */
+  private consecutiveFailures = 0;
+  /** Circuit breaker: is the breaker open (paused)? */
+  private circuitOpen = false;
+  /** Circuit breaker: auto-resume timer */
+  private circuitTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     events: EventBus,
@@ -87,29 +95,36 @@ export class AgentLoop {
     this.scheduleNext(this.options.defaultInterval);
   }
 
-  /** Stop the OODA loop gracefully */
-  stop(): void {
-    if (!this.running) return;
+  /** Stop the OODA loop gracefully — waits for current cycle to complete */
+  async stop(): Promise<void> {
+    if (!this.running && !this.stopping) return;
     this.running = false;
+    this.stopping = true;
 
-    // Cancel pending timer
+    // Cancel pending timer (no new timer-triggered cycles)
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
     }
 
-    // Abort current cycle if running
-    if (this.currentCycleAbort) {
-      this.currentCycleAbort.abort();
-      this.currentCycleAbort = null;
+    // Cancel circuit breaker cooldown timer
+    if (this.circuitTimer) {
+      clearTimeout(this.circuitTimer);
+      this.circuitTimer = null;
     }
 
-    // Unsubscribe from events
+    // Unsubscribe from events (no new event-triggered cycles)
     for (const { pattern, handler } of this.eventHandlers) {
       this.events.off(pattern, handler);
     }
     this.eventHandlers = [];
 
+    // Wait for current cycle to finish naturally (don't abort)
+    if (this.cyclePromise) {
+      await this.cyclePromise.catch(() => {});
+    }
+
+    this.stopping = false;
     slog('loop', `OODA loop stopped after ${this.cycleCount} cycles`);
   }
 
@@ -131,6 +146,28 @@ export class AgentLoop {
   // === Internal ===
 
   private triggerCycle(trigger: CycleTrigger): void {
+    // Don't start new cycles if shutting down
+    if (this.stopping) return;
+
+    // Circuit breaker: skip if open, UNLESS this is a human-initiated event
+    if (this.circuitOpen) {
+      const isHuman = trigger.type === 'event' && trigger.event &&
+        (trigger.event.type.includes('chat') || trigger.event.type.includes('telegram') || trigger.event.type.includes('room'));
+      if (isHuman) {
+        // Human message overrides circuit breaker
+        slog('loop', 'Circuit breaker bypassed — human message received');
+        this.circuitOpen = false;
+        this.consecutiveFailures = 0;
+        if (this.circuitTimer) {
+          clearTimeout(this.circuitTimer);
+          this.circuitTimer = null;
+        }
+      } else {
+        slog('loop', `Circuit breaker open — skipping trigger: ${trigger.type}`);
+        return;
+      }
+    }
+
     // Debounce: if a cycle is already running, skip
     if (this.currentCycleAbort) {
       slog('loop', `Cycle already running — skipping trigger: ${trigger.type}`);
@@ -143,9 +180,16 @@ export class AgentLoop {
       this.timer = null;
     }
 
-    // Run the cycle
-    this.runCycle(trigger).catch(err => {
+    // Run the cycle and track the promise for graceful shutdown
+    const promise = this.runCycle(trigger).catch(err => {
       slog('loop', `Cycle error: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    });
+    this.cyclePromise = promise;
+    promise.finally(() => {
+      if (this.cyclePromise === promise) {
+        this.cyclePromise = null;
+      }
     });
   }
 
@@ -253,6 +297,9 @@ export class AgentLoop {
         }
       }
 
+      // Success — reset circuit breaker counter
+      this.consecutiveFailures = 0;
+
       const duration = Date.now() - start;
       const result: CycleResult = {
         response,
@@ -267,6 +314,7 @@ export class AgentLoop {
         cycle: cycleNum,
         duration,
         actionCount: actions.length,
+        response,
       });
 
       // Schedule next cycle
@@ -279,17 +327,49 @@ export class AgentLoop {
       if (abort.signal.aborted) return null;
 
       const duration = Date.now() - start;
-      slog('loop', `Cycle #${cycleNum} failed (${duration}ms): ${err instanceof Error ? err.message : String(err)}`);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      slog('loop', `Cycle #${cycleNum} failed (${duration}ms): ${errorMsg}`);
       this.events.emit('action:cycle', {
         event: 'error',
         cycle: cycleNum,
         duration,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMsg,
       });
 
-      // Schedule retry with backoff
-      if (this.running) {
-        this.scheduleNext(Math.min(this.options.defaultInterval * 2, this.options.maxInterval));
+      // Circuit breaker: track consecutive failures
+      this.consecutiveFailures++;
+      const maxFailures = this.options.maxConsecutiveFailures ?? 5;
+
+      if (maxFailures > 0 && this.consecutiveFailures >= maxFailures) {
+        // Open circuit breaker
+        this.circuitOpen = true;
+        slog('loop', `Circuit breaker OPEN — ${this.consecutiveFailures} consecutive failures. Loop paused.`);
+        this.events.emit('action:cycle', {
+          event: 'circuit-open',
+          cycle: cycleNum,
+          consecutiveFailures: this.consecutiveFailures,
+          error: errorMsg,
+        });
+
+        // Auto-resume after cooldown
+        const cooldown = this.options.circuitBreakerCooldown ?? 900_000; // 15min
+        if (cooldown > 0 && this.running) {
+          this.circuitTimer = setTimeout(() => {
+            this.circuitTimer = null;
+            if (this.running && this.circuitOpen) {
+              this.circuitOpen = false;
+              this.consecutiveFailures = 0;
+              slog('loop', 'Circuit breaker CLOSED — cooldown expired, resuming');
+              this.events.emit('action:cycle', { event: 'circuit-closed' });
+              this.scheduleNext(this.options.defaultInterval);
+            }
+          }, cooldown);
+        }
+      } else {
+        // Schedule retry with backoff (still under threshold)
+        if (this.running) {
+          this.scheduleNext(Math.min(this.options.defaultInterval * 2, this.options.maxInterval));
+        }
       }
 
       return null;

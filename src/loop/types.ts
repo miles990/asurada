@@ -112,4 +112,18 @@ export interface AgentLoopOptions {
    * combination is seen within a 4h window, a dedup hint is injected into the prompt.
    */
   dataDir?: string;
+
+  /**
+   * Maximum consecutive LLM failures before pausing the loop (default: 5).
+   * After this many failures in a row, the loop emits 'action:cycle' with
+   * event 'circuit-open' and pauses. A successful cycle resets the counter.
+   * Set to 0 to disable (infinite retry — not recommended).
+   */
+  maxConsecutiveFailures?: number;
+
+  /**
+   * Cooldown in ms before auto-resuming after circuit breaker opens (default: 900000 = 15m).
+   * Set to 0 to disable auto-resume (requires manual trigger).
+   */
+  circuitBreakerCooldown?: number;
 }

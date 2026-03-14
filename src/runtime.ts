@@ -31,6 +31,9 @@ import type { TaskExecutor } from './lanes/types.js';
 import { AgentLoop } from './loop/agent-loop.js';
 import type { AgentLoopOptions, CycleRunner } from './loop/types.js';
 import { ModelRouter } from './loop/model-router.js';
+import { FeedbackLoops } from './loop/feedback-loops.js';
+import { ContextOptimizer } from './loop/context-optimizer.js';
+import { HesitationAnalyzer } from './loop/hesitation.js';
 import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
 import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
 import { OpenAiCompatibleRunner } from './loop/runners/openai-compatible.js';
@@ -73,6 +76,12 @@ export interface Agent {
   readonly cron: CronScheduler;
   /** OODA loop (null if no runner configured) */
   readonly loop: AgentLoop | null;
+  /** Self-learning feedback loops (error patterns, perception citations, quality audit) */
+  readonly feedbackLoops: FeedbackLoops;
+  /** Context window optimizer (citation-driven section demotion/promotion) */
+  readonly contextOptimizer: ContextOptimizer;
+  /** Hesitation analyzer (meta-cognitive quality gate for LLM responses) */
+  readonly hesitation: HesitationAnalyzer;
   /** Instance ID */
   readonly instanceId: string;
   /** Active agent name (for memory namespacing) */
@@ -252,7 +261,9 @@ function buildAgent(
 
   // --- 4d. Conversation Store ---
   const conversationsDir = path.join(memoryDir, 'conversations');
-  const conversations = new ConversationStore(conversationsDir);
+  const conversations = new ConversationStore(conversationsDir, {
+    maxDays: config.memory?.maxConversationDays,
+  });
 
   // --- 5. Perception ---
   const perception = new PerceptionManager();
@@ -276,7 +287,41 @@ function buildAgent(
   // --- 7. Cron Scheduler ---
   const cronScheduler = new CronScheduler(events, (msg) => slog('cron', msg));
 
-  // --- 8. OODA Loop ---
+  // --- 8. Self-Learning Subsystems ---
+  const feedbackStateDir = path.join(dataDir, 'state');
+  const feedbackLoops = new FeedbackLoops({
+    stateDir: feedbackStateDir,
+    onErrorPattern: (description) => {
+      // Create a task in the cognitive graph when recurring errors detected
+      index.create('task', description, { tags: ['auto-error-pattern'], status: 'active' }).catch(() => {});
+      slog('feedback', `Auto-task: ${description}`);
+    },
+    onAdjustInterval: (pluginName, intervalMs) => {
+      // Slow down low-citation perception plugins
+      perception.adjustInterval(pluginName, intervalMs);
+    },
+    onRestoreInterval: (pluginName) => {
+      // Restore citation-recovered plugins to default interval
+      perception.restoreDefaultInterval(pluginName);
+    },
+    onQualityWarning: (avgScore) => {
+      notifications.notify(`⚠️ Decision quality low (avg ${avgScore.toFixed(1)}/6). Check recent cycles.`).catch(() => {});
+    },
+  });
+
+  const contextOptimizer = new ContextOptimizer({
+    stateDir: feedbackStateDir,
+    protectedSections: ['soul', 'inbox', 'workspace', 'memory', 'self', 'conversation-history'],
+    sectionKeywords: config.contextOptimizer?.sectionKeywords ?? {},
+    demotionThreshold: config.contextOptimizer?.demotionThreshold,
+    observationCycles: config.contextOptimizer?.observationCycles,
+  });
+
+  const hesitation = new HesitationAnalyzer({
+    stateDir: feedbackStateDir,
+  });
+
+  // --- 9. OODA Loop ---
   let loop: AgentLoop | null = null;
   if (options?.loop?.runner) {
     const loopInterval = parseInterval(config.loop?.interval) ?? 300_000;
@@ -326,6 +371,17 @@ function buildAgent(
       // Conversation history — the agent needs to see recent messages to maintain dialogue
       const triggerMsg = ctx.trigger.event?.data?.message as
         { id?: string; from?: string; text?: string } | undefined;
+
+      // Auto-store incoming user messages so conversation history is complete
+      if (triggerMsg?.text && triggerMsg.from && triggerMsg.from !== agentName) {
+        conversations.append({
+          id: triggerMsg.id,
+          from: triggerMsg.from,
+          text: triggerMsg.text,
+          source: 'user',
+        }).catch(() => {});
+      }
+
       try {
         const recent = await conversations.recent({ limit: 20 });
         if (recent.length > 0) {
@@ -346,11 +402,22 @@ function buildAgent(
         }
       } catch { /* best-effort */ }
 
-      // Perception
+      // Perception — skip sections demoted by ContextOptimizer (unless keyword match)
       if (Object.keys(ctx.perception).length > 0) {
+        const contextHints = (triggerMsg?.text ?? ctx.trigger.type).split(/\s+/).filter(Boolean);
+        const included: string[] = [];
+        const demoted: string[] = [];
         parts.push('\n## Perception\n');
         for (const [name, output] of Object.entries(ctx.perception)) {
-          parts.push(`<${name}>\n${output}\n</${name}>\n`);
+          if (contextOptimizer.shouldLoad(name, contextHints)) {
+            parts.push(`<${name}>\n${output}\n</${name}>\n`);
+            included.push(name);
+          } else {
+            demoted.push(name);
+          }
+        }
+        if (demoted.length > 0) {
+          slog('runtime', `Context optimizer: skipped ${demoted.length} demoted sections (${demoted.join(', ')})`);
         }
       }
 
@@ -380,7 +447,15 @@ function buildAgent(
         } catch { /* best-effort */ }
       }
 
-      return parts.join('\n');
+      const assembled = parts.join('\n');
+
+      // Prompt budget warning — rough char-to-token estimate
+      const estimatedTokens = Math.ceil(assembled.length / 3.5);
+      if (estimatedTokens > 180_000) {
+        slog('runtime', `Prompt budget warning: ~${estimatedTokens} tokens (${assembled.length} chars). Consider enabling context optimizer or reducing perception plugins.`);
+      }
+
+      return assembled;
     });
 
     // --- Default onAction: dispatch tags to memory/notifications/lanes ---
@@ -487,7 +562,7 @@ function buildAgent(
   // Post-cycle housekeeping: vault sync + cron drain
   let vaultSyncCounter = 0;
   events.on('action:cycle', (event) => {
-    const d = event.data as { event?: string };
+    const d = event.data as { event?: string; response?: string; cycle?: number };
     if (d.event !== 'complete') return;
 
     // Drain one cron task per cycle (fire-and-forget)
@@ -498,6 +573,32 @@ function buildAgent(
       vaultSyncCounter++;
       if (vaultSyncCounter % 10 === 0) {
         vault.sync().catch(() => {});
+      }
+    }
+
+    // Self-learning: feedback loops — pass LLM response for quality audit + citation tracking
+    const response = d.response ?? null;
+    feedbackLoops.runAll(response).catch(() => {});
+
+    // Context optimizer: extract cited sections from LLM response, record, and save
+    if (response) {
+      const skipTags = new Set(['br', 'p', 'div', 'span', 'b', 'i', 'a', 'ul', 'li', 'ol']);
+      const cited: string[] = [];
+      for (const m of response.matchAll(/<(\w[\w-]+)>/g)) {
+        if (!skipTags.has(m[1])) cited.push(m[1]);
+      }
+      contextOptimizer.recordCycle({ citedSections: [...new Set(cited)] });
+    }
+    contextOptimizer.save();
+
+    // Hesitation analysis: score response quality (fire-and-forget logging)
+    if (response) {
+      const result = hesitation.analyze(response);
+      if (result.score > 0) {
+        hesitation.logEvent(result, 'cycle', d.cycle as number | undefined);
+        if (!result.confident) {
+          slog('hesitation', result.suggestion);
+        }
       }
     }
   });
@@ -539,6 +640,9 @@ function buildAgent(
     lanes,
     cron: cronScheduler,
     loop,
+    feedbackLoops,
+    contextOptimizer,
+    hesitation,
     instanceId,
     activeAgent,
 
@@ -598,9 +702,9 @@ function buildAgent(
 
       slog('runtime', `Stopping agent "${agentName}"...`);
 
-      // Stop OODA loop
+      // Stop OODA loop (waits for current cycle to complete)
       if (loop) {
-        loop.stop();
+        await loop.stop();
       }
 
       // Stop cron
