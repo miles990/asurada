@@ -130,6 +130,7 @@ Controls the autonomous OODA cycle.
 | `interval` | string | `"5m"` | Time between cycles. Supports `s`, `m`, `h` suffixes |
 | `model` | string | `"sonnet"` | LLM model identifier |
 | `runner` | string | auto | `"claude-cli"` or `"anthropic-api"`. Auto-detected from code |
+| `promptProfile` | string | `"full"` | System prompt verbosity. `"full"` (default) for cloud models; `"compact"` for local models (7B/13B) — roughly 40% fewer tokens |
 
 ### `perception`
 

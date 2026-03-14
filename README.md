@@ -16,7 +16,7 @@ Asurada takes a different approach. Instead of hiding complexity behind a chat i
 
 - **Perception-first**: Your agent observes the environment before acting — OODA cycle as heartbeat, shell plugins as senses. Each agent's world is different because you define what it can see
 - **File = Truth**: All state lives in Markdown + JSONL. `cat` to read, `git` to version, Obsidian to visualize. No database, no opaque store — you can always see what your agent knows and why
-- **Co-evolution**: The agent adapts to your feedback and you learn its patterns. SOUL.md isn't a config file — it's a growth journal that deepens over time
+- **Co-evolution**: The agent adapts to your corrections via `<agent:feedback>` — stored as graph nodes, surfaced by ContextBuilder, visible in Obsidian. SOUL.md isn't a config file — it's a growth journal that deepens over time
 - **Multi-lane parallelism**: Main OODA cycle + foreground lane + 6 background tentacles. Like slime mold — explore multiple directions, strengthen what works, prune what doesn't
 - **Self-evolution**: Error pattern detection, perception citation tracking, decision quality scoring. Your agent gets smarter the more it runs
 
@@ -111,6 +111,16 @@ Perception (See)  →  OODA Loop (Think)  →  Actions (Do)
   CDP Web            Self-Evolution       Obsidian Sync
 ```
 
+## Web Dashboard
+
+Start your agent and open `http://localhost:3001` in your browser:
+
+- **Dashboard** (`/dashboard`) — Live agent status, perception streams, and cycle history
+- **Chat** (`/chat`) — Chat interface for direct interaction
+- **Task Board** (`/board`) — Visual task tracking and management
+
+The dashboard connects via SSE (`/api/events`) for real-time updates — no polling, no refresh needed.
+
 ### Core Modules
 
 | Module | What it does |
@@ -121,7 +131,7 @@ Perception (See)  →  OODA Loop (Think)  →  Actions (Do)
 | **Event Bus** | Typed events + wildcard patterns + reactive primitives (debounce, throttle) |
 | **Multi-Lane** | Main + foreground + 6 background lanes. Organic parallelism |
 | **Notification** | Provider interface — console, Telegram, Discord, Slack, email |
-| **HTTP API** | `/health`, `/status`, `/api/message`, `/api/events` (SSE) |
+| **HTTP API** | `/health`, `/status`, `/api/message`, `/api/events` (SSE), web dashboard |
 | **Obsidian** | Vault sync — frontmatter, wikilinks, graph view colors by cognitive type |
 | **Process Mgmt** | launchd (macOS) / pidfile (Linux). Auto-restart on crash |
 | **Config** | YAML-based. Sensible defaults, zero-config possible |

@@ -101,6 +101,19 @@ Every modification is a moment of co-construction. The framework is a meta-tool 
 
 This is why Setup Wizard (Phase 3) matters more than ModelRouter (Phase 5). The wizard is the user's first act of construction. It sets the tone for everything that follows.
 
+## Co-evolution
+
+Asurada's co-evolution promise isn't a vague aspiration — it's backed by a concrete, inspectable mechanism:
+
+### Feedback Loop
+
+1. **User corrects agent** → agent uses `<agent:feedback pattern="name">what happened</agent:feedback>`
+2. **Pattern stored** in the cognitive graph (memory-index.jsonl) with `feedback` tag
+3. **ContextBuilder** surfaces relevant feedback patterns when related topics appear in future cycles
+4. **Behavior shifts** — the agent's future decisions are influenced by accumulated feedback
+
+This isn't a black box. Every correction is a file you can read, a graph node you can see in Obsidian, and a pattern the agent explicitly references when making decisions.
+
 ## Design Axioms (Summary)
 
 1. **Perception before action** — See first, then decide. Never execute blind.

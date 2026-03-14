@@ -339,6 +339,11 @@ async function cmdStart(): Promise<void> {
   } else {
     console.log(`Agent "${agentName}" running on port ${server.port}`);
   }
+  console.log();
+  console.log(`  Dashboard:  http://localhost:${server.port}/dashboard`);
+  console.log(`  Chat:       http://localhost:${server.port}/chat`);
+  console.log(`  Task Board: http://localhost:${server.port}/board`);
+  console.log();
   console.log('Press Ctrl+C to stop');
 
   // Graceful shutdown

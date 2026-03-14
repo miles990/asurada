@@ -29,6 +29,7 @@ agent:
 loop:
   enabled: true
   interval: 5m
+  # promptProfile: compact  # Use 'compact' for local models (7B/13B) — ~40% fewer tokens
   # anthropicApiKey: sk-ant-...    # Required for anthropic-api runner
   # router:                     # Three-tier model routing (optional)
   #   enabled: true
