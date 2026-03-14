@@ -84,31 +84,14 @@ export async function startServer(
     });
   }
 
-  // --- Messages storage (file-based) ---
+  // --- Messages via ConversationStore (unified with runtime) ---
+  const conversations = agent.conversations;
+
+  // --- Task store (JSONL event-sourced) ---
   const dataDir = agent.config.paths?.data
     ? path.resolve(agent.config.paths.data)
     : path.join(process.cwd(), '.asurada');
-
-  const messagesFile = path.join(dataDir, 'messages.jsonl');
-
-  // --- Task store (JSONL event-sourced) ---
   const taskStore = new TaskStore(path.join(dataDir, 'tasks.jsonl'));
-
-  function appendMessage(msg: Message): void {
-    const dir = path.dirname(messagesFile);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.appendFileSync(messagesFile, JSON.stringify(msg) + '\n');
-  }
-
-  function readRecentMessages(limit = 50): Message[] {
-    try {
-      const content = fs.readFileSync(messagesFile, 'utf-8');
-      const lines = content.trim().split('\n').filter(Boolean);
-      return lines.slice(-limit).map(line => JSON.parse(line) as Message);
-    } catch {
-      return [];
-    }
-  }
 
   // --- Routes ---
 
@@ -188,7 +171,7 @@ export async function startServer(
   });
 
   // Send message to agent
-  app.post('/api/message', (req, res) => {
+  app.post('/api/message', async (req, res) => {
     const { from, text, replyTo } = req.body as {
       from?: string;
       text?: string;
@@ -200,39 +183,38 @@ export async function startServer(
       return;
     }
 
-    // Generate message ID: YYYY-MM-DD-NNN
-    const today = new Date().toISOString().slice(0, 10);
-    const todayMessages = readRecentMessages(1000).filter(m => m.id.startsWith(today));
-    const seq = String(todayMessages.length + 1).padStart(3, '0');
-    const id = `${today}-${seq}`;
-
     // Extract mentions (@name)
     const mentionMatches = text.match(/@\w+/g);
     const mentions = mentionMatches?.map(m => m.slice(1)) ?? [];
 
-    const message: Message = {
-      id,
-      from,
-      text,
-      replyTo,
-      mentions,
-      timestamp: new Date().toISOString(),
-    };
+    try {
+      const message = await conversations.append({
+        from,
+        text,
+        replyTo,
+        mentions,
+        source: 'api',
+      });
 
-    appendMessage(message);
+      // Emit event so the loop can pick it up
+      agent.events.emit('trigger:message', { message });
 
-    // Emit event so the loop can pick it up
-    agent.events.emit('trigger:message', { message });
-
-    slog('api', `Message ${id} from ${from}: ${text.slice(0, 80)}`);
-    res.status(201).json({ id, timestamp: message.timestamp });
+      slog('api', `Message ${message.id} from ${from}: ${text.slice(0, 80)}`);
+      res.status(201).json({ id: message.id, timestamp: message.ts });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to save message' });
+    }
   });
 
   // Recent messages
-  app.get('/api/messages', (req, res) => {
+  app.get('/api/messages', async (req, res) => {
     const limit = parseInt(req.query.limit as string, 10) || 50;
-    const messages = readRecentMessages(limit);
-    res.json({ messages });
+    try {
+      const messages = await conversations.recent({ limit });
+      res.json({ messages });
+    } catch {
+      res.json({ messages: [] });
+    }
   });
 
   // Memory search

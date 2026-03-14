@@ -78,6 +78,7 @@ export {
   MemorySearch,
   MemoryIndex,
   ContextBuilder,
+  ConversationStore,
   type MemoryEntry,
   type SearchResult,
   type MemoryConfig,
@@ -89,9 +90,12 @@ export {
   type ResolvedIndex,
   type ContextSection,
   type DirectionChangeContext,
+  type FeedbackContext,
   type MemoryContextResult,
   type ContextBuildOptions,
   type ConversationMessage,
+  type ConvMessage,
+  type ConversationQuery,
 } from './memory/index.js';
 
 export {

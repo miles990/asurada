@@ -38,6 +38,7 @@ import type { RunnerRef } from './config/types.js';
 import { VaultSync } from './obsidian/vault-sync.js';
 import { initVault } from './obsidian/vault-init.js';
 import { ContextBuilder } from './memory/context-builder.js';
+import { ConversationStore } from './memory/conversation.js';
 import type { ParsedAction, CycleContext } from './loop/types.js';
 import { generateSoulSeed } from './setup/scaffold.js';
 
@@ -62,6 +63,8 @@ export interface Agent {
   readonly vault: VaultSync | null;
   /** Memory-aware context builder (for prompts) */
   readonly contextBuilder: ContextBuilder;
+  /** Conversation store (multi-turn dialogue history) */
+  readonly conversations: ConversationStore;
   /** Logger (JSONL file-based) */
   readonly logger: Logger;
   /** Multi-lane task manager */
@@ -247,6 +250,10 @@ function buildAgent(
   // --- 4c. Context Builder ---
   const contextBuilder = new ContextBuilder(memory, index, search);
 
+  // --- 4d. Conversation Store ---
+  const conversationsDir = path.join(memoryDir, 'conversations');
+  const conversations = new ConversationStore(conversationsDir);
+
   // --- 5. Perception ---
   const perception = new PerceptionManager();
 
@@ -310,11 +317,34 @@ function buildAgent(
     const buildPromptFn = promptProfile === 'compact' ? buildCompactSystemPrompt : buildDefaultSystemPrompt;
     const defaultSystemPrompt = options.loop.systemPrompt ?? buildPromptFn(config, agentName, namespace);
 
-    // --- Default buildPrompt: perception + ContextBuilder memory ---
+    // --- Default buildPrompt: perception + conversation + ContextBuilder memory ---
     const defaultBuildPrompt = options.loop.buildPrompt ?? (async (ctx: CycleContext): Promise<string> => {
       const parts: string[] = [];
 
       parts.push(`Cycle #${ctx.cycleNumber} | Trigger: ${ctx.trigger.type}`);
+
+      // Conversation history — the agent needs to see recent messages to maintain dialogue
+      const triggerMsg = ctx.trigger.event?.data?.message as
+        { id?: string; from?: string; text?: string } | undefined;
+      try {
+        const recent = await conversations.recent({ limit: 20 });
+        if (recent.length > 0) {
+          parts.push('\n## Conversation\n');
+          if (triggerMsg?.text) {
+            parts.push(`**New message from ${triggerMsg.from ?? 'user'}:**\n> ${triggerMsg.text}\n`);
+          }
+          parts.push('<conversation-history>');
+          for (const msg of recent) {
+            const reply = msg.replyTo ? ` (↩${msg.replyTo})` : '';
+            parts.push(`[${msg.id}] ${msg.from}: ${msg.text}${reply}`);
+          }
+          parts.push('</conversation-history>\n');
+        } else if (triggerMsg?.text) {
+          // No history yet, but there's a new message
+          parts.push('\n## Conversation\n');
+          parts.push(`**New message from ${triggerMsg.from ?? 'user'}:**\n> ${triggerMsg.text}\n`);
+        }
+      } catch { /* best-effort */ }
 
       // Perception
       if (Object.keys(ctx.perception).length > 0) {
@@ -325,9 +355,11 @@ function buildAgent(
       }
 
       // Memory context (via ContextBuilder)
-      const triggerText = ctx.trigger.event?.data
-        ? JSON.stringify(ctx.trigger.event.data).slice(0, 200)
-        : ctx.trigger.type;
+      // Use trigger message text for better topic matching when available
+      const triggerText = triggerMsg?.text
+        ?? (ctx.trigger.event?.data
+          ? JSON.stringify(ctx.trigger.event.data).slice(0, 200)
+          : ctx.trigger.type);
       try {
         const memCtx = await contextBuilder.build(triggerText);
         const memoryPrompt = contextBuilder.formatForPrompt(memCtx);
@@ -366,6 +398,12 @@ function buildAgent(
         }
         case 'chat': {
           await notifications.notify(action.content);
+          // Store agent responses in conversation history
+          conversations.append({
+            from: agentName,
+            text: action.content,
+            source: 'agent',
+          }).catch(() => {});
           events.emit('action:chat', { content: action.content });
           slog('action', `chat: ${action.content.slice(0, 80)}`);
           break;
@@ -496,6 +534,7 @@ function buildAgent(
     index,
     vault,
     contextBuilder,
+    conversations,
     logger,
     lanes,
     cron: cronScheduler,
