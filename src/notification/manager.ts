@@ -24,6 +24,15 @@ export class NotificationManager {
       this.providers.map(p => p.send(message, options))
     );
 
+    // Log failed providers for debugging
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === 'rejected') {
+        const name = this.providers[i]?.name ?? `provider-${i}`;
+        console.warn(`[notification] ${name} failed: ${(r.reason as Error)?.message ?? r.reason}`);
+      }
+    }
+
     // 至少有一個成功就算成功
     return results.some(
       r => r.status === 'fulfilled' && r.value === true

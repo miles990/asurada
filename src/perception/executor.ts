@@ -134,11 +134,20 @@ export function formatResults(
   results: PerceptionResult[],
   defaultCap = 4000,
   capOverrides?: Record<string, number>,
+  plugins?: PerceptionPlugin[],
 ): string {
+  // Build cap map: plugin-level outputCap → capOverrides → defaultCap
+  const pluginCaps = new Map<string, number>();
+  if (plugins) {
+    for (const p of plugins) {
+      if (p.outputCap) pluginCaps.set(p.name, p.outputCap);
+    }
+  }
+
   return results
     .filter(r => r.output)
     .map(r => {
-      const cap = capOverrides?.[r.name] ?? defaultCap;
+      const cap = capOverrides?.[r.name] ?? pluginCaps.get(r.name) ?? defaultCap;
       const output = r.output!.length > cap
         ? r.output!.slice(0, cap) + '\n[... truncated]'
         : r.output!;
