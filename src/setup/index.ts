@@ -6,3 +6,5 @@ export { scaffoldMemorySpace } from './scaffold.js';
 export type { ScaffoldResult } from './scaffold.js';
 export { isFirstRun, markFirstRunDone, gatherFirstRunInfo, formatFirstRunGreeting } from './first-run.js';
 export type { FirstRunInfo } from './first-run.js';
+export { runDiagnostics, formatDiagnostics } from './doctor.js';
+export type { DiagnosticResult } from './doctor.js';

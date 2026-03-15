@@ -95,12 +95,40 @@ export async function startServer(
 
   // --- Routes ---
 
-  // Health check
-  app.get('/health', (_req, res) => {
+  // Health check (enriched with subsystem stats)
+  app.get('/health', async (_req, res) => {
+    const perceptionStats = agent.perception.getStats();
+    const unhealthy = perceptionStats.filter(s => !s.healthy).map(s => s.name);
+    const laneStats = agent.lanes.stats();
+
+    let indexEntries = 0;
+    try { indexEntries = (await agent.index.stats()).total; } catch { /* best-effort */ }
+
+    let topicCount = 0;
+    try { topicCount = (await agent.memory.listTopics()).length; } catch { /* best-effort */ }
+
     const response: HealthResponse = {
-      status: 'ok',
+      status: unhealthy.length === 0 ? 'ok' : 'degraded',
       uptime: Date.now() - startTime,
       version: VERSION,
+      perception: {
+        pluginCount: perceptionStats.length,
+        healthyCount: perceptionStats.length - unhealthy.length,
+        unhealthyPlugins: unhealthy,
+      },
+      loop: agent.loop ? {
+        running: agent.loop.isRunning,
+        cycles: agent.loop.cycles,
+      } : null,
+      lanes: {
+        active: laneStats.active,
+        queued: laneStats.queued,
+        completed: laneStats.completed,
+      },
+      memory: {
+        indexEntries,
+        topicCount,
+      },
     };
     res.json(response);
   });
@@ -259,8 +287,8 @@ export async function startServer(
   // Lanes status
   app.get('/api/lanes', (_req, res) => {
     const stats = agent.lanes.stats();
-    const completed = agent.lanes.drain();
-    // Put results back (drain is destructive, but we want to show them)
+    const allTasks = agent.lanes.list({ includeCompleted: true });
+    const completed = allTasks.filter(t => t.status !== 'running' && t.status !== 'queued');
     res.json({
       ...stats,
       recentCompleted: completed.map(r => ({

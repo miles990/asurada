@@ -175,6 +175,101 @@ Recent messages (from `messages.jsonl`).
 }
 ```
 
+---
+
+### `GET /api/tasks`
+
+List all active tasks (excludes soft-deleted).
+
+**Response:**
+
+```json
+{
+  "tasks": [
+    {
+      "id": "task-abc123",
+      "title": "Investigate login timeout",
+      "status": "doing",
+      "assignee": "agent",
+      "labels": ["bug"],
+      "verify": "curl -s localhost:3000/health | jq .status",
+      "createdAt": "2026-03-15T02:00:00.000Z",
+      "updatedAt": "2026-03-15T02:30:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### `POST /api/tasks`
+
+Create a new task.
+
+**Request:**
+
+```json
+{
+  "title": "Fix memory leak in perception loop",
+  "assignee": "agent",
+  "labels": ["bug", "perception"],
+  "verify": "pnpm test",
+  "by": "user"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | yes | Task description |
+| `assignee` | string | no | Who should work on it |
+| `labels` | string[] | no | Categorization tags |
+| `verify` | string | no | Shell command to verify completion |
+| `messageRef` | string | no | Related message ID |
+| `by` | string | no | Creator identifier (default: `"unknown"`) |
+
+**Response** (`201`):
+
+```json
+{
+  "task": { "id": "task-def456", "title": "Fix memory leak in perception loop", "status": "todo", ... }
+}
+```
+
+---
+
+### `PATCH /api/tasks/:id`
+
+Update a task's status, title, assignee, or labels.
+
+**Request:**
+
+```json
+{
+  "status": "done",
+  "by": "agent"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | One of: `todo`, `doing`, `done`, `abandoned` |
+| `assignee` | string | Reassign the task |
+| `labels` | string[] | Replace labels |
+| `title` | string | Update title |
+| `by` | string | Who made the change |
+
+**Response:** `{ "task": { ... } }` or `404` if not found.
+
+---
+
+### `DELETE /api/tasks/:id`
+
+Soft-delete a task (excluded from `GET /api/tasks` but preserved in storage).
+
+**Response:** `{ "ok": true }` or `404` if not found.
+
+---
+
 ## Extending the Server
 
 The `AgentServer` object exposes the Express app for custom routes:

@@ -42,7 +42,6 @@ const DEFAULT_TYPE_CONFIGS: Record<string, TaskTypeConfig> = {
 
 interface QueueEntry {
   task: TaskSpec;
-  resolve: (id: string) => void;
 }
 
 interface ActiveEntry {
@@ -110,7 +109,7 @@ export class LaneManager extends EventEmitter {
         output: '',
         meta: task.meta,
       };
-      this.queue.push({ task: normalizedTask, resolve: () => {} });
+      this.queue.push({ task: normalizedTask });
       this.emit('task:queued', result);
       return taskId;
     }
@@ -251,7 +250,6 @@ export class LaneManager extends EventEmitter {
     while (this.active.size < this.config.maxConcurrent && this.queue.length > 0) {
       const entry = this.queue.shift()!;
       this.startTask(entry.task);
-      entry.resolve(entry.task.id!);
     }
   }
 

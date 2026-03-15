@@ -47,7 +47,25 @@ export interface AgentStatus {
 
 /** Health check response */
 export interface HealthResponse {
-  status: 'ok' | 'error';
+  status: 'ok' | 'degraded';
   uptime: number;
   version: string;
+  perception?: {
+    pluginCount: number;
+    healthyCount: number;
+    unhealthyPlugins: string[];
+  };
+  loop?: {
+    running: boolean;
+    cycles: number;
+  } | null;
+  lanes?: {
+    active: number;
+    queued: number;
+    completed: number;
+  };
+  memory?: {
+    indexEntries: number;
+    topicCount: number;
+  };
 }

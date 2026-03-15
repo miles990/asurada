@@ -40,8 +40,24 @@ export function findConfigFile(dir?: string, specificFile?: string): string | nu
  * Merges with defaults — user only needs to specify what differs.
  */
 export function loadConfig(filePath: string): AgentConfig {
-  const raw = fs.readFileSync(filePath, 'utf-8');
-  const parsed = parseYaml(raw) as Partial<AgentConfig>;
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    throw new Error(`Cannot read config file "${filePath}": ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  let parsed: Partial<AgentConfig>;
+  try {
+    parsed = parseYaml(raw) as Partial<AgentConfig>;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Invalid YAML in "${filePath}": ${msg}\nHint: Check for indentation errors or missing colons.`);
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error(`Config file "${filePath}" is empty or not a YAML object.`);
+  }
 
   // Validate: agent.name is required
   if (!parsed.agent?.name) {

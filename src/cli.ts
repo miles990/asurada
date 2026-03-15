@@ -16,7 +16,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { findConfigFile, loadConfig, writeConfig, getDefaultDataDir, type AgentConfig } from './config/index.js';
+import { findConfigFile, loadConfig, writeConfig, getDefaultDataDir, validateConfig, type AgentConfig } from './config/index.js';
 import { createAgent, createAgentFromConfig, type CreateAgentOptions } from './runtime.js';
 import { startServer } from './api/server.js';
 import { createProcessManager } from './process/factory.js';
@@ -27,7 +27,7 @@ import { ModelRouter } from './loop/model-router.js';
 import type { CycleRunner } from './loop/types.js';
 import type { RunnerRef } from './config/types.js';
 import { slog } from './logging/index.js';
-import { detectEnvironment, formatDetection, runWizard, scaffoldMemorySpace, isFirstRun, markFirstRunDone, gatherFirstRunInfo, formatFirstRunGreeting } from './setup/index.js';
+import { detectEnvironment, formatDetection, runWizard, scaffoldMemorySpace, isFirstRun, markFirstRunDone, gatherFirstRunInfo, formatFirstRunGreeting, runDiagnostics, formatDiagnostics } from './setup/index.js';
 
 // === Parse Args ===
 
@@ -58,6 +58,8 @@ async function main(): Promise<void> {
       return cmdStop();
     case 'status':
       return cmdStatus();
+    case 'doctor':
+      return cmdDoctor();
     case 'logs':
       return cmdLogs();
     case 'help':
@@ -93,7 +95,10 @@ async function cmdInit(): Promise<void> {
 
   // Validate hard requirements
   if (!env.git.available) {
-    console.error('Git is required for memory versioning. Install git and retry.');
+    console.error('Git is required for memory versioning.');
+    console.error('  macOS:   brew install git');
+    console.error('  Ubuntu:  sudo apt install git');
+    console.error('  Windows: https://git-scm.com/download/win');
     process.exit(1);
   }
 
@@ -235,6 +240,20 @@ if [ "$count" -gt 0 ]; then
   echo "URL: $url"
 fi
 `,
+    'system-stats.sh': `#!/bin/bash
+# System stats — basic resource monitoring.
+
+echo "Disk: $(df -h / 2>/dev/null | awk 'NR==2{print $5}') used"
+
+# Memory (macOS vs Linux)
+if command -v vm_stat &>/dev/null; then
+  echo "Memory: $(vm_stat 2>/dev/null | awk '/Pages active/{printf "%.0f MB", $3*4096/1048576}')"
+elif command -v free &>/dev/null; then
+  echo "Memory: $(free -m 2>/dev/null | awk '/Mem:/{print $3 " MB used"}')"
+fi
+
+echo "Load: $(uptime | awk -F'load average:' '{print $2}' | xargs)"
+`,
   };
 
   let created = 0;
@@ -301,6 +320,20 @@ async function cmdStart(): Promise<void> {
     }
   }
 
+  // Validate config before starting
+  const configDir = path.dirname(path.resolve(configPath));
+  const issues = validateConfig(config, configDir);
+  const errors = issues.filter(i => i.level === 'error');
+  const warnings = issues.filter(i => i.level === 'warn');
+  if (warnings.length > 0) {
+    for (const w of warnings) console.warn(`  ⚠ ${w.field}: ${w.message}`);
+  }
+  if (errors.length > 0) {
+    for (const e of errors) console.error(`  ✗ ${e.field}: ${e.message}`);
+    console.error('\nFix the errors above before starting.');
+    process.exit(1);
+  }
+
   const daemon = flag('daemon') || flag('d') || command === 'up';
 
   if (daemon) {
@@ -321,7 +354,6 @@ async function cmdStart(): Promise<void> {
 
   // Auto-detect CycleRunner for OODA loop
   const agentOptions = autoDetectRunner(config);
-  const configDir = path.dirname(path.resolve(configPath));
   const agent = await createAgentFromConfig(config, { ...agentOptions, baseDir: configDir });
   await agent.start();
 
@@ -521,6 +553,17 @@ async function cmdLogs(): Promise<void> {
   }
 }
 
+// --- doctor ---
+
+async function cmdDoctor(): Promise<void> {
+  console.log('\nRunning diagnostics...\n');
+  const results = await runDiagnostics(process.cwd());
+  console.log(formatDiagnostics(results));
+
+  const failures = results.filter(r => r.status === 'fail');
+  if (failures.length > 0) process.exit(1);
+}
+
 // --- help ---
 
 function cmdHelp(): void {
@@ -536,6 +579,7 @@ Commands:
   start -d / up       Start agent (daemon)
   stop / down         Stop daemon
   status              Show agent status
+  doctor              Run diagnostic checks
   logs [-f]           Show recent logs
 
 Init options:

@@ -78,6 +78,21 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** HTML tags to skip when extracting section names */
+const SKIP_HTML_TAGS = new Set(['br', 'p', 'div', 'span', 'b', 'i', 'a', 'ul', 'li', 'ol']);
+
+/**
+ * Extract unique XML section names from text (e.g. LLM responses).
+ * Skips common HTML tags. Used by context optimizer and citation tracking.
+ */
+export function extractCitedSections(text: string): string[] {
+  const cited: string[] = [];
+  for (const m of text.matchAll(/<(\w[\w-]+)>/g)) {
+    if (!SKIP_HTML_TAGS.has(m[1])) cited.push(m[1]);
+  }
+  return [...new Set(cited)];
+}
+
 /** Parse a duration string to milliseconds. Supports: 30s, 5m, 2h, "now" (=30s) */
 export function parseDuration(str: string): number | null {
   if (str === 'now') return 30_000;

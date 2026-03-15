@@ -26,6 +26,9 @@ Asurada takes a different approach. Instead of hiding complexity behind a chat i
 git clone https://github.com/miles990/asurada.git
 cd asurada && npm install && npm run build
 npm link   # creates the 'asurada' command globally
+
+# Or with pnpm:
+# pnpm install && pnpm build
 ```
 
 Now you can use the CLI:
@@ -93,7 +96,7 @@ memory:
 
 notification:
   providers:
-    - type: console  # or telegram, discord, slack
+    - type: console  # or telegram, webhook
 
 loop:
   enabled: true
@@ -130,7 +133,7 @@ The dashboard connects via SSE (`/api/events`) for real-time updates — no poll
 | **Memory** | Append-only JSONL store + FTS5 full-text search + cognitive graph index + ContextBuilder |
 | **Event Bus** | Typed events + wildcard patterns + reactive primitives (debounce, throttle) |
 | **Multi-Lane** | Main + foreground + 6 background lanes. Organic parallelism |
-| **Notification** | Provider interface — console, Telegram, Discord, Slack, email |
+| **Notification** | Provider interface — console, Telegram, webhook. Extensible for custom providers |
 | **HTTP API** | `/health`, `/status`, `/api/message`, `/api/events` (SSE), web dashboard |
 | **Obsidian** | Vault sync — frontmatter, wikilinks, graph view colors by cognitive type |
 | **Process Mgmt** | launchd (macOS) / pidfile (Linux). Auto-restart on crash |
@@ -189,7 +192,7 @@ First time? The wizard walks you through everything:
 asurada init
 ```
 
-It detects your environment (OS, Chrome, available LLMs), asks you to name your agent and choose a persona, connects your notification channel (Telegram, Discord, or console), and scaffolds a memory directory with a starter SOUL.md.
+It detects your environment (OS, Chrome, available LLMs), asks you to name your agent and choose a persona, connects your notification channel (Telegram, webhook, or console), and scaffolds a memory directory with a starter SOUL.md.
 
 On first start, your agent introduces itself — showing what it can perceive and how to interact with it.
 

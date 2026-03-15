@@ -9,6 +9,7 @@ import type { NotificationProvider, NotificationStats, SendOptions } from './typ
 
 export class NotificationManager {
   private providers: NotificationProvider[] = [];
+  private _failureCount = 0;
 
   /** 註冊通知 provider */
   register(provider: NotificationProvider): void {
@@ -24,12 +25,15 @@ export class NotificationManager {
       this.providers.map(p => p.send(message, options))
     );
 
-    // Log failed providers for debugging
+    // Track and log failed providers
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
       if (r.status === 'rejected') {
+        this._failureCount++;
         const name = this.providers[i]?.name ?? `provider-${i}`;
-        console.warn(`[notification] ${name} failed: ${(r.reason as Error)?.message ?? r.reason}`);
+        const msg = (r.reason as Error)?.message ?? String(r.reason);
+        // Use process.stderr to avoid circular dependency on slog
+        process.stderr.write(`[notification] ${name} failed: ${msg}\n`);
       }
     }
 
@@ -37,6 +41,11 @@ export class NotificationManager {
     return results.some(
       r => r.status === 'fulfilled' && r.value === true
     );
+  }
+
+  /** Total number of send failures across all providers */
+  get failureCount(): number {
+    return this._failureCount;
   }
 
   /** 聚合所有 provider 的統計 */

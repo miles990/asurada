@@ -27,6 +27,8 @@ export interface AgentConfig {
   obsidian?: ObsidianConfig;
   /** Skill files to load */
   skills?: string[];
+  /** Context window optimizer settings */
+  contextOptimizer?: ContextOptimizerConfig;
   /** Cron jobs */
   cron?: CronEntry[];
   /** Paths (resolved relative to config file) */
@@ -157,6 +159,8 @@ export interface AgentMemoryConfig {
   dir?: string;
   /** Enable topic-scoped memory */
   topics?: boolean;
+  /** Delete conversation files older than this many days (0 = keep forever, default: 0) */
+  maxConversationDays?: number;
   /** Search settings */
   search?: {
     /** Enable FTS5 search */
@@ -194,6 +198,16 @@ export interface ObsidianConfig {
   conversationsSubdir?: string;
   /** Generate daily .md summaries from JSONL logs (default: true) */
   generateDailySummaries?: boolean;
+}
+
+/** Context window optimizer configuration */
+export interface ContextOptimizerConfig {
+  /** Section → keyword mapping for conditional loading after demotion */
+  sectionKeywords?: Record<string, string[]>;
+  /** Consecutive zero-citation cycles before demotion (default: 50) */
+  demotionThreshold?: number;
+  /** Observation period after promotion in cycles (default: 50) */
+  observationCycles?: number;
 }
 
 /** Resolved paths */

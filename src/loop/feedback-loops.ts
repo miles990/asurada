@@ -18,6 +18,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { slog } from '../logging/index.js';
+import { extractCitedSections } from './action-parser.js';
 
 // === Types ===
 
@@ -194,11 +195,8 @@ export class FeedbackLoops {
     });
 
     // Extract <section-name> references from action text
-    const skipTags = new Set(['br', 'p', 'div', 'span', 'b', 'i', 'a', 'ul', 'li', 'ol']);
-    for (const m of action.matchAll(/<(\w[\w-]+)>/g)) {
-      if (!skipTags.has(m[1])) {
-        state.citations[m[1]] = (state.citations[m[1]] ?? 0) + 1;
-      }
+    for (const name of extractCitedSections(action)) {
+      state.citations[name] = (state.citations[name] ?? 0) + 1;
     }
 
     state.cycleCount++;

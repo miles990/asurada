@@ -5,7 +5,8 @@ export {
   buildTriagePrompt,
   parseRoutingDecision,
 } from './model-router.js';
-export { parseActions, parseDuration } from './action-parser.js';
+export { parseActions, parseDuration, extractCitedSections } from './action-parser.js';
+export { buildDefaultSystemPrompt, buildCompactSystemPrompt } from './system-prompt.js';
 export {
   ClaudeCliRunner,
   AnthropicApiRunner,
@@ -32,3 +33,9 @@ export { RouteTelemetry } from './route-telemetry.js';
 export type { TelemetryEntry, TelemetrySummary } from './route-telemetry.js';
 export { StimulusDedup, buildStimulusFingerprint, DEDUP_HINT } from './stimulus-dedup.js';
 export type { DedupCheckResult } from './stimulus-dedup.js';
+export { FeedbackLoops } from './feedback-loops.js';
+export type { FeedbackLoopsOptions, ErrorLogEntry } from './feedback-loops.js';
+export { ContextOptimizer } from './context-optimizer.js';
+export type { ContextOptimizerOptions, SectionDemotionState } from './context-optimizer.js';
+export { HesitationAnalyzer, hesitate } from './hesitation.js';
+export type { HesitationOptions, HesitationResult, HesitationSignal, HeldAction, ErrorPattern } from './hesitation.js';
