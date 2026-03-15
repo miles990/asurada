@@ -22,10 +22,7 @@ import { startServer } from './api/server.js';
 import { createProcessManager } from './process/factory.js';
 import { ClaudeCliRunner } from './loop/runners/claude-cli.js';
 import { AnthropicApiRunner } from './loop/runners/anthropic-api.js';
-import { OpenAiCompatibleRunner } from './loop/runners/openai-compatible.js';
-import { ModelRouter } from './loop/model-router.js';
 import type { CycleRunner } from './loop/types.js';
-import type { RunnerRef } from './config/types.js';
 import { slog } from './logging/index.js';
 import { detectEnvironment, formatDetection, runWizard, scaffoldMemorySpace, isFirstRun, markFirstRunDone, gatherFirstRunInfo, formatFirstRunGreeting, runDiagnostics, formatDiagnostics } from './setup/index.js';
 
@@ -615,35 +612,7 @@ function autoDetectRunner(config: AgentConfig): CreateAgentOptions | undefined {
     return undefined;
   }
 
-  // Check if router is enabled
-  const routerConfig = config.loop?.router;
-  if (routerConfig?.enabled) {
-    const triageRunner = routerConfig.triageRunner
-      ? resolveRunnerRef(routerConfig.triageRunner, anthropicApiKey)
-      : null;
-    const reflectRunner = routerConfig.reflectRunner
-      ? resolveRunnerRef(routerConfig.reflectRunner, anthropicApiKey)
-      : null;
-
-    if (!triageRunner) {
-      console.warn('Warning: Router enabled but no triageRunner configured. Using direct runner.');
-      return { loop: { runner: escalateRunner } };
-    }
-
-    const router = new ModelRouter({
-      triageRunner,
-      reflectRunner: reflectRunner ?? escalateRunner,
-      escalateRunner,
-      reflectTasks: routerConfig.reflectTasks,
-      halfLifeMinutes: routerConfig.halfLife,
-      threadFloor: routerConfig.threadFloor,
-      shadowMode: routerConfig.shadowMode,
-    });
-
-    console.log(`Runner: ModelRouter (shadow: ${router.shadowMode ? 'on' : 'off'}, halfLife: ${routerConfig.halfLife ?? 30}m)`);
-    return { loop: { runner: router } };
-  }
-
+  // Router wrapping is handled by buildAgent() in runtime.ts — CLI only provides the base runner.
   return { loop: { runner: escalateRunner } };
 }
 
@@ -675,30 +644,6 @@ function resolveBaseRunner(runnerHint: string | undefined, model: string, anthro
   }
 
   return null;
-}
-
-/** Resolve a RunnerRef from router config to a concrete CycleRunner */
-function resolveRunnerRef(ref: RunnerRef, fallbackApiKey?: string): CycleRunner | null {
-  switch (ref.type) {
-    case 'anthropic-api': {
-      const apiKey = ref.apiKey ?? fallbackApiKey;
-      if (!apiKey) return null;
-      return new AnthropicApiRunner({ apiKey, model: ref.model ?? 'haiku' });
-    }
-    case 'claude-cli':
-      return new ClaudeCliRunner({ model: ref.model ?? 'haiku' });
-    case 'openai-compatible': {
-      if (!ref.baseUrl || !ref.model) return null;
-      return new OpenAiCompatibleRunner({
-        baseUrl: ref.baseUrl,
-        model: ref.model,
-        apiKey: ref.apiKey,
-      });
-    }
-    default:
-      console.warn(`Unknown runner type in router config: "${ref.type}"`);
-      return null;
-  }
 }
 
 function hasClaude(): boolean {

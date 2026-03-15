@@ -26,7 +26,7 @@ try {
   // better-sqlite3 not installed — FTS5 search disabled, grep fallback active
 }
 
-const STOP_WORDS = new Set([
+export const STOP_WORDS = new Set([
   'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'has', 'was',
   'one', 'our', 'out', 'is', 'it', 'in', 'to', 'of', 'on', 'at', 'an', 'or',
   'if', 'no', 'so', 'do', 'my', 'up', 'this', 'that', 'with', 'from', 'have',

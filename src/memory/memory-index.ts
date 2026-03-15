@@ -22,13 +22,7 @@ import type {
   ResolvedIndex,
   CognitiveType,
 } from './index-types.js';
-
-/** Stop words for relevance matching (shared with MemorySearch) */
-const RELEVANCE_STOP_WORDS = new Set([
-  'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'has', 'was',
-  'one', 'our', 'out', 'is', 'it', 'in', 'to', 'of', 'on', 'at', 'an', 'or',
-  'if', 'no', 'so', 'do', 'my', 'up', 'this', 'that', 'with', 'from', 'have',
-]);
+import { STOP_WORDS } from './search.js';
 
 /** Generate a short unique ID (12 chars, URL-safe) */
 function generateId(): string {
@@ -262,7 +256,7 @@ export class MemoryIndex {
       .toLowerCase()
       .split(/[\s,;:./\-_]+/)
       .filter(t => t.length > 1)
-      .filter(t => !RELEVANCE_STOP_WORDS.has(t));
+      .filter(t => !STOP_WORDS.has(t));
 
     if (tokens.length === 0) return [];
 

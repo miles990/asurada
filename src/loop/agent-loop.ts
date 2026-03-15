@@ -12,14 +12,14 @@ import type { EventBus, AgentEvent } from '../core/event-bus.js';
 import type { PerceptionManager } from '../perception/manager.js';
 import { slog } from '../logging/index.js';
 import { parseActions, parseDuration } from './action-parser.js';
-import type {
-  AgentLoopOptions,
-  CycleContext,
-  CycleResult,
-  CycleTrigger,
-  ParsedAction,
+import {
+  isRoutingRunner,
+  type AgentLoopOptions,
+  type CycleContext,
+  type CycleResult,
+  type CycleTrigger,
+  type ParsedAction,
 } from './types.js';
-import { ModelRouter } from './model-router.js';
 import { StimulusDedup, buildStimulusFingerprint, DEDUP_HINT } from './stimulus-dedup.js';
 
 export class AgentLoop {
@@ -248,8 +248,8 @@ export class AgentLoop {
         }
       }
 
-      // 5b. Sync ModelRouter state (if applicable)
-      if (this.options.runner instanceof ModelRouter) {
+      // 5b. Sync routing state (if applicable)
+      if (isRoutingRunner(this.options.runner)) {
         this.options.runner.lastHumanMessageAt = this.lastHumanMessageAt;
         this.options.runner.hasActiveThread = this.hasActiveThread;
       }
@@ -260,8 +260,8 @@ export class AgentLoop {
 
       if (abort.signal.aborted) return null;
 
-      // 6b. If ModelRouter SKIPped (empty response), clear active thread after decay
-      if (this.options.runner instanceof ModelRouter && response === '') {
+      // 6b. If router SKIPped (empty response), clear active thread after decay
+      if (isRoutingRunner(this.options.runner) && response === '') {
         this.hasActiveThread = false;
       }
 

@@ -18,6 +18,17 @@ export interface CycleRunner {
   run(prompt: string, systemPrompt: string): Promise<string>;
 }
 
+/** A CycleRunner that supports routing state sync (e.g. ModelRouter). */
+export interface RoutingRunner extends CycleRunner {
+  lastHumanMessageAt: Date | null;
+  hasActiveThread: boolean;
+}
+
+/** Type guard for RoutingRunner — duck-typed, no instanceof needed. */
+export function isRoutingRunner(runner: CycleRunner): runner is RoutingRunner {
+  return 'lastHumanMessageAt' in runner && 'hasActiveThread' in runner;
+}
+
 // === Cycle Context ===
 
 /** What triggered this cycle */

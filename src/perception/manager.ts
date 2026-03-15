@@ -214,7 +214,7 @@ export class PerceptionManager {
   async refreshAll(): Promise<void> {
     if (!this.running) return;
     await Promise.allSettled(
-      [...this.streams.values()].map(entry => this.tick(entry).catch(() => {})),
+      [...this.streams.values()].map(entry => this.tick(entry)),
     );
   }
 
